@@ -141,3 +141,8 @@ vite.config.ts.timestamp-*
 # Local uploads
 storage/**
 !storage/.gitkeep
+
+# Editor settings
+.vscode/
+.idea/
+Thumbs.db
