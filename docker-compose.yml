@@ -1,0 +1,21 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: pitstop-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: pitstop
+      MYSQL_USER: pituser
+      MYSQL_PASSWORD: pitpass
+    ports:
+      - "3307:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-u", "pituser", "-ppitpass"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  dbdata:

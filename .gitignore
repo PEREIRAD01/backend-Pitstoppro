@@ -146,3 +146,4 @@ storage/**
 .vscode/
 .idea/
 Thumbs.db
+/src/generated/prisma
