@@ -6,13 +6,13 @@ import { AppError } from '../errors';
 
 const registerSchema = z.object({
 	email: z.string().email(),
-	password: z.string().min(6),
+	password: z.string().min(8),
 	displayName: z.string().min(1),
 });
 
 const loginSchema = z.object({
 	email: z.string().email(),
-	password: z.string().min(6),
+	password: z.string().min(8),
 });
 
 export default async function auth(app: FastifyInstance) {
@@ -22,7 +22,7 @@ export default async function auth(app: FastifyInstance) {
 		const user = await prisma.user.create({
 			data: { email: body.email, passwordHash: hash, displayName: body.displayName },
 		});
-		const token = app.jwt.sign({ sub: user.id });
+		const token = app.jwt.sign({ sub: user.id }, { expiresIn: '24h' });
 		return reply.code(201).send({ token });
 	});
 
@@ -32,7 +32,7 @@ export default async function auth(app: FastifyInstance) {
 		if (!user) throw new AppError('Invalid credentials', 401);
 		const ok = await bcrypt.compare(body.password, user.passwordHash);
 		if (!ok) throw new AppError('Invalid credentials', 401);
-		const token = (req.server as any).jwt.sign({ sub: user.id });
+		const token = (req.server as any).jwt.sign({ sub: user.id }, { expiresIn: '24h' });
 		return { token };
 	});
 
