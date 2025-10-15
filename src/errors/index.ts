@@ -11,7 +11,7 @@ export class AppError extends Error {
 }
 
 export function registerErrorHandler(app: FastifyInstance) {
-	app.setErrorHandler((err, req, reply) => {
+	app.setErrorHandler((err: any, req, reply) => {
 		if (err instanceof AppError) {
 			return reply.status(err.status).send({ error: err.message });
 		}
@@ -26,11 +26,18 @@ export function registerErrorHandler(app: FastifyInstance) {
 				return reply.status(409).send({ error: 'Conflict', message: 'Duplicated unique value' });
 			}
 		}
-		const code = (err as any)?.code as string | undefined;
-		if (code && code.startsWith('FST_JWT')) {
+		
+		if (err?.code === 'FST_ERR_CTP_INVALID_JSON_BODY') {
+			return reply.status(400).send({ error: 'InvalidJson', message: 'Body must be valid JSON' });
+		}
+		
+		if (typeof err?.code === 'string' && err.code.startsWith('FST_JWT')) {
 			return reply.status(401).send({ error: 'Unauthorized' });
 		}
+
+		
+		const status = Number(err?.statusCode) || 500;
 		req.log.error({ err }, 'Unhandled error');
-		return reply.status(500).send({ error: 'InternalServerError' });
+		return reply.status(status).send({ error: 'InternalServerError' });
 	});
 }

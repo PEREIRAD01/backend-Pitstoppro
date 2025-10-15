@@ -23,7 +23,7 @@ export async function buildApp() {
 			  },
 	});
 
-	app.register(jwt, { secret: env.JWT_SECRET });
+	await app.register(jwt, { secret: env.JWT_SECRET });
 
 	await app.register(helmet);
 	await app.register(cors, {

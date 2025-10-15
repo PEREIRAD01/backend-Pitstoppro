@@ -1,37 +1,43 @@
+@base = http://localhost:3333/v1
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImlhdCI6MTc2MDU3MDMxOCwiZXhwIjoxNzYwNjU2NzE4fQ.zq7rzBYtd0yDbksfoEVgFUTkz779TUe3MTE20dkgtBs
+
 ### Health
-GET http://localhost:3333/v1/health
+GET {{base}}/health
 
-### Login  (guarda o token automaticamente)
-# @name login
-POST http://localhost:3333/v1/auth/login
+
+### Login  (copia o token da resposta)
+POST {{base}}/auth/login
 Content-Type: application/json
 
-{
-  "email": "daniel2@test.com",
-  "password": "12345678"
-}
+{"email":"daniel2@test.com","password":"12345678"}
 
-### Me  (usa o token do login)
-@token = {{login.response.body.$.token}}
-GET http://localhost:3333/v1/auth/me
+
+### Me
+GET {{base}}/auth/me
 Authorization: Bearer {{token}}
 
-### Vehicles
-GET http://localhost:3333/v1/vehicles
+
+### List Vehicles
+GET {{base}}/vehicles
 Authorization: Bearer {{token}}
 
-### Create Vehicle
-POST http://localhost:3333/v1/vehicles
+
+### Create Vehicle (Harley)
+POST {{base}}/vehicles
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{
-  "plate": "AA-00-ZZ",
-  "brand": "Harley Davidson",
-  "model": "Street Bob",
-  "photoUrl": "https://static1.hotcarsimages.com/wordpress/wp-content/uploads/2023/10/23-fxbb-street-bob-beauty-bc-0009-edit-1.jpg"
-}
+{"plate":"AA-00-ZZ","brand":"Harley Davidson","model":"Street Bob","photoUrl":"https://static1.hotcarsimages.com/wordpress/wp-content/uploads/2023/10/23-fxbb-street-bob-beauty-bc-0009-edit-1.jpg"}
 
-### List after create
-GET http://localhost:3333/v1/vehicles
+
+### Update Vehicle (PATCH)
+PATCH {{base}}/vehicles/3
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{"model":"Street Bob (2020)"}
+
+
+### Delete Vehicle
+DELETE {{base}}/vehicles/1
 Authorization: Bearer {{token}}
