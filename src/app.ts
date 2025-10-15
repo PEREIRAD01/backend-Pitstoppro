@@ -5,6 +5,7 @@ import helmet from '@fastify/helmet';
 import { env } from './env';
 import health from './routes/health';
 import auth from './routes/auth';
+import vehicles from './routes/vehicles';
 import { registerErrorHandler } from './errors';
 
 export async function buildApp() {
@@ -33,6 +34,7 @@ export async function buildApp() {
 
 	app.register(health, { prefix: '/v1' });
 	app.register(auth, { prefix: '/v1' });
+	app.register(vehicles, { prefix: '/v1' });
 
 	return app;
 }
