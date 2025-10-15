@@ -7,6 +7,7 @@ import health from './routes/health';
 import auth from './routes/auth';
 import vehicles from './routes/vehicles';
 import { registerErrorHandler } from './errors';
+import authGuard from './plugins/auth-guard';
 
 export async function buildApp() {
 	const isProd = env.NODE_ENV === 'production';
@@ -29,6 +30,8 @@ export async function buildApp() {
 		origin: ['http://localhost:5173', 'http://localhost:3333'],
 		credentials: true,
 	});
+
+	app.register(authGuard);
 
 	registerErrorHandler(app);
 
