@@ -19,3 +19,19 @@ Authorization: Bearer {{token}}
 ### Vehicles
 GET http://localhost:3333/v1/vehicles
 Authorization: Bearer {{token}}
+
+### Create Vehicle
+POST http://localhost:3333/v1/vehicles
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "plate": "AA-00-ZZ",
+  "brand": "Harley Davidson",
+  "model": "Street Bob",
+  "photoUrl": "https://static1.hotcarsimages.com/wordpress/wp-content/uploads/2023/10/23-fxbb-street-bob-beauty-bc-0009-edit-1.jpg"
+}
+
+### List after create
+GET http://localhost:3333/v1/vehicles
+Authorization: Bearer {{token}}
