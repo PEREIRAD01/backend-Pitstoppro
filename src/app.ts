@@ -31,8 +31,8 @@ export async function buildApp() {
 
 	registerErrorHandler(app);
 
-	app.register(health);
-	app.register(auth);
+	app.register(health, { prefix: '/v1' });
+	app.register(auth, { prefix: '/v1' });
 
 	return app;
 }
