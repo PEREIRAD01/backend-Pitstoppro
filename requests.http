@@ -1,5 +1,5 @@
 @base = http://localhost:3333/v1
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImlhdCI6MTc2MDY0ODQzMCwiZXhwIjoxNzYwNzM0ODMwfQ.faTMO-b58mDQ9TXsjZbo6Go6TjHjEMMTqEapXgY28QE
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImlhdCI6MTc2MDY1MzU5MywiZXhwIjoxNzYwNzM5OTkzfQ.eCG8J871eZcf1ZPDvAA3ohNzJ1WQGXc8susW33Tlync
 
 ### Health
 GET {{base}}/health

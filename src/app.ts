@@ -2,12 +2,15 @@ import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import swagger from '@fastify/swagger';
+import swaggerUI from '@fastify/swagger-ui';
+
 import { env } from './env';
 import health from './routes/health';
 import auth from './routes/auth';
 import vehicles from './routes/vehicles';
-import { registerErrorHandler } from './errors';
 import authGuard from './plugins/auth-guard';
+import { registerErrorHandler } from './errors';
 
 export async function buildApp() {
 	const isProd = env.NODE_ENV === 'production';
@@ -23,6 +26,7 @@ export async function buildApp() {
 			  },
 	});
 
+
 	await app.register(jwt, { secret: env.JWT_SECRET });
 
 	await app.register(helmet);
@@ -31,8 +35,25 @@ export async function buildApp() {
 		credentials: true,
 	});
 
-	app.register(authGuard);
+	await app.register(swagger, {
+		openapi: {
+			info: { title: 'PitStop Pro API', version: '1.0.0' },
+			servers: [{ url: 'http://localhost:3333/v1' }],
+			components: {
+				securitySchemes: {
+					bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+				},
+			},
+		},
+	});
 
+	await app.register(swaggerUI, {
+		routePrefix: '/docs',
+		uiConfig: { docExpansion: 'list', deepLinking: false },
+	});
+
+	
+	app.register(authGuard);
 	registerErrorHandler(app);
 
 	app.register(health, { prefix: '/v1' });
