@@ -13,13 +13,33 @@ const vehicleUpdateSchema = vehicleSchema.partial();
 const idParamSchema = z.object({ id: z.coerce.number().int().positive() });
 
 export default async function vehicles(app: FastifyInstance) {
-	app.get('/vehicles', { preHandler: app.authenticate }, async (req: any) => {
-		const userId = Number(req.user.sub);
-		return prisma.vehicle.findMany({
-			where: { userId },
-			orderBy: { id: 'desc' },
+	 app.get('/vehicles', { preHandler: app.authenticate }, async (req: any) => {
+			const userId = Number(req.user.sub);
+
+			const listQuerySchema = z.object({
+				page: z.coerce.number().int().positive().default(1),
+				limit: z.coerce.number().int().min(1).max(100).default(10),
+				sort: z
+					.string()
+					.regex(/^(id|createdAt|brand|model):(asc|desc)$/i)
+					.optional(),
+			});
+
+			const { page, limit, sort } = listQuerySchema.parse(req.query);
+			const [sortField, sortDir] = sort?.split(':') ?? (['id', 'desc'] as const);
+
+			const [data, total] = await Promise.all([
+				prisma.vehicle.findMany({
+					where: { userId },
+					orderBy: { [sortField as 'id' | 'createdAt' | 'brand' | 'model']: sortDir as 'asc' | 'desc' },
+					skip: (page - 1) * limit,
+					take: limit,
+				}),
+				prisma.vehicle.count({ where: { userId } }),
+			]);
+
+			return { data, page, limit, total, pages: Math.ceil(total / limit) };
 		});
-	});
 
 	app.post('/vehicles', { preHandler: app.authenticate }, async (req: any, reply) => {
 		const body = vehicleSchema.parse(req.body);
