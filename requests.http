@@ -5,7 +5,7 @@
 GET {{base}}/health
 
 
-### Login  (copia o token da resposta)
+### Login  (copiar o token da resposta e colocar em cima)
 POST {{base}}/auth/login
 Content-Type: application/json
 
@@ -22,7 +22,7 @@ GET {{base}}/vehicles
 Authorization: Bearer {{token}}
 
 
-### Create Vehicle (Harley)
+### Create Vehicle 
 POST {{base}}/vehicles
 Authorization: Bearer {{token}}
 Content-Type: application/json
