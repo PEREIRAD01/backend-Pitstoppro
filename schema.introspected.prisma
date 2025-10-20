@@ -1,0 +1,59 @@
+﻿generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider          = "mysql"
+  url               = env("DATABASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATABASE_URL")
+}
+
+model User {
+  id           Int           @id @default(autoincrement())
+  email        String        @unique
+  passwordHash String
+  displayName  String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  maintenances Maintenance[]
+  vehicles     Vehicle[]
+}
+
+model Vehicle {
+  id                Int           @id @default(autoincrement())
+  userId            Int
+  plate             String
+  brand             String
+  model             String
+  photoUrl          String?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  year              Int?
+  vehicleName       String?
+  currentOdometerKm Int?
+  maintenances      Maintenance[]
+  user              User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, plate])
+  @@index([userId])
+}
+
+model Maintenance {
+  id          Int      @id @default(autoincrement())
+  userId      Int
+  vehicleId   Int
+  date        DateTime
+  odometerKm  Int
+  costEur     Decimal  @db.Decimal(10, 2)
+  description String
+  done        Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  vehicle     Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([vehicleId])
+}
+
+

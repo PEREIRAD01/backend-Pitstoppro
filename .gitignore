@@ -147,3 +147,4 @@ storage/**
 .idea/
 Thumbs.db
 /src/generated/prisma
+schema.introspected.prisma
