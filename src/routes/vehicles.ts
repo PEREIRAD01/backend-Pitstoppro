@@ -16,28 +16,29 @@ const idParamSchema = z.object({
 	id: z.coerce.number().int().positive(),
 });
 
-export default async function vehicles(app: FastifyInstance) {
-	app.get(
-		'/vehicles',
-		{
-			preHandler: app.authenticate,
-			schema: {
-				tags: ['vehicles'],
-				summary: 'List my vehicles (paginated)',
-				querystring: {
-					type: 'object',
-					properties: {
-						page: { type: 'integer', minimum: 1, default: 1 },
-						limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
-						sort: {
-							type: 'string',
-							description: 'field:direction',
-							enum: ['id:asc', 'id:desc', 'plate:asc', 'plate:desc', 'brand:asc', 'brand:desc', 'model:asc', 'model:desc'],
-							default: 'id:desc',
+	export default async function vehicles(app: FastifyInstance) {
+		app.get(
+			'/vehicles',
+			{
+				preHandler: app.authenticate,
+				schema: {
+					tags: ['vehicles'],
+					summary: 'List my vehicles (paginated)',
+					security: [{ bearerAuth: [] }],
+					querystring: {
+						type: 'object',
+						properties: {
+							page: { type: 'integer', minimum: 1, default: 1 },
+							limit: { type: 'integer', minimum: 1, maximum: 100, default: 10 },
+							sort: {
+								type: 'string',
+								description: 'field:direction',
+								enum: ['id:asc', 'id:desc', 'plate:asc', 'plate:desc', 'brand:asc', 'brand:desc', 'model:asc', 'model:desc'],
+								default: 'id:desc',
+							},
 						},
 					},
-				},
-				response: {
+					response: {
 					200: {
 						type: 'object',
 						required: ['data', 'page', 'limit', 'total', 'pages'],
