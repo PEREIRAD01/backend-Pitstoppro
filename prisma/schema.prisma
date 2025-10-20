@@ -26,6 +26,9 @@ model Vehicle {
   brand        String
   model        String
   photoUrl     String?
+  year         Int?
+  vehicleName  String?
+  currentOdometerKm Int?
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   maintenances Maintenance[]
   createdAt    DateTime      @default(now())

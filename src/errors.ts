@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { ZodError } from 'zod';
+import { Prisma } from '@prisma/client';
 
 export class AppError extends Error {
   status: number;
@@ -29,8 +30,13 @@ export function registerErrorHandler(app: FastifyInstance) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
+    if (err instanceof Prisma.PrismaClientKnownRequestError) {
+      if (err.code === 'P2002') {
+        return reply.status(409).send({ error: 'UniqueConstraint' });
+      }
+    }
+
     app.log.error(err);
     return reply.status(500).send({ error: 'Internal Server Error' });
   });
 }
-

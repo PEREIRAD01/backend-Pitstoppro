@@ -8,6 +8,9 @@ const createSchema = z.object({
 	brand: z.string().min(1),
 	model: z.string().min(1),
 	photoUrl: z.string().url().optional(),
+	year: z.number().int().min(1900).max(2100).optional(),
+	vehicleName: z.string().min(1).optional(),
+	currentOdometerKm: z.number().int().min(0).optional(),
 });
 
 const updateSchema = createSchema.partial();
@@ -111,6 +114,9 @@ const idParamSchema = z.object({
 						brand: { type: 'string' },
 						model: { type: 'string' },
 						photoUrl: { type: 'string' },
+						year: { type: 'integer', minimum: 1900, maximum: 2100 },
+						vehicleName: { type: 'string' },
+						currentOdometerKm: { type: 'integer', minimum: 0 },
 					},
 				},
 				response: {
@@ -162,6 +168,9 @@ const idParamSchema = z.object({
 						brand: { type: 'string' },
 						model: { type: 'string' },
 						photoUrl: { type: 'string' },
+						year: { type: 'integer', minimum: 1900, maximum: 2100 },
+						vehicleName: { type: 'string' },
+						currentOdometerKm: { type: 'integer', minimum: 0 },
 					},
 				},
 				response: {
