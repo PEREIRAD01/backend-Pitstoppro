@@ -11,50 +11,62 @@ import auth from './routes/auth';
 import vehicles from './routes/vehicles';
 import authGuard from './plugins/auth-guard';
 import { registerErrorHandler } from './errors';
+import prisma from './db/prisma';
 
 export async function buildApp() {
 	const isProd = env.NODE_ENV === 'production';
+	const isTest = env.NODE_ENV === 'test';
 
 	const app = Fastify({
-		logger: isProd
-			? true
-			: {
-					transport: {
-						target: 'pino-pretty',
-						options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
-					},
-			  },
+		logger: isTest
+			? false
+			: isProd
+				? true
+				: {
+						transport: {
+							target: 'pino-pretty',
+							options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
+						},
+				  },
 	});
 
 
 	await app.register(jwt, { secret: env.JWT_SECRET });
 
-	await app.register(helmet);
-	await app.register(cors, {
-		origin: ['http://localhost:5173', 'http://localhost:3333'],
-		credentials: true,
-	});
+	if (!isTest) {
+		await app.register(helmet);
+		await app.register(cors, {
+			origin: ['http://localhost:5173', 'http://localhost:3333'],
+			credentials: true,
+		});
+	}
 
-	await app.register(swagger, {
-		openapi: {
-			info: { title: 'PitStop Pro API', version: '1.0.0' },
-			servers: [{ url: 'http://localhost:3333/v1' }],
-			components: {
-				securitySchemes: {
-					bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+	if (!isTest) {
+		await app.register(swagger, {
+			openapi: {
+				info: { title: 'PitStop Pro API', version: '1.0.0' },
+				servers: [{ url: 'http://localhost:3333/v1' }],
+				components: {
+					securitySchemes: {
+						bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
+					},
 				},
 			},
-		},
-	});
+		});
 
-	await app.register(swaggerUI, {
-		routePrefix: '/docs',
-		uiConfig: { docExpansion: 'list', deepLinking: false },
-	});
+		await app.register(swaggerUI, {
+			routePrefix: '/docs',
+			uiConfig: { docExpansion: 'list', deepLinking: false },
+		});
+	}
 
 	
 	app.register(authGuard);
 	registerErrorHandler(app);
+
+	app.addHook('onClose', async () => {
+		await prisma.$disconnect();
+	});
 
 	app.register(health, { prefix: '/v1' });
 	app.register(auth, { prefix: '/v1' });
