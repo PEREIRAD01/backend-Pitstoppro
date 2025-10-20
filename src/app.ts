@@ -9,6 +9,9 @@ import { env } from './env';
 import health from './routes/health';
 import auth from './routes/auth';
 import vehicles from './routes/vehicles';
+import events from './routes/events';
+import expenses from './routes/expenses';
+import trackedItems from './routes/tracked-items';
 import authGuard from './plugins/auth-guard';
 import { registerErrorHandler } from './errors';
 import prisma from './db/prisma';
@@ -71,6 +74,9 @@ export async function buildApp() {
 	app.register(health, { prefix: '/v1' });
 	app.register(auth, { prefix: '/v1' });
 	app.register(vehicles, { prefix: '/v1' });
+	app.register(events, { prefix: '/v1' });
+	app.register(expenses, { prefix: '/v1' });
+	app.register(trackedItems, { prefix: '/v1' });
 
 	return app;
 }
