@@ -31,11 +31,122 @@ model Vehicle {
   currentOdometerKm Int?
   user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
   maintenances Maintenance[]
+  events       VehicleEvent[]
+  trackedItems TrackedItem[]
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
 
   @@index([userId])
   @@unique([userId, plate])
+}
+
+// === Enums for events, tracked items, and expenses ===
+enum VehicleEventType {
+  insurance
+  inspection
+  iuc
+  custom
+}
+
+enum TrackedItemType {
+  event
+  part
+}
+
+enum ExpenseCategory {
+  part
+  event
+  insurance
+  inspection
+  iuc
+  maintenance
+  service
+  fuel
+  toll
+  parking
+  other
+}
+
+// === Vehicle events ===
+model VehicleEvent {
+  id        Int              @id @default(autoincrement())
+  vehicleId Int
+  eventType VehicleEventType
+  dueDate   DateTime
+  isDone    Boolean          @default(false)
+  doneDate  DateTime?
+  note      String?
+
+  vehicle   Vehicle          @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  expenses  Expense[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([vehicleId, dueDate])
+}
+
+// === Tracked items and logs ===
+model TrackedItem {
+  id            Int             @id @default(autoincrement())
+  vehicleId     Int
+  itemType      TrackedItemType
+  name          String
+  notes         String?
+  startDate     DateTime?
+  startOdometer Int?
+  validMonths   Int?
+  validKm       Int?
+  dueDate       DateTime?
+  dueOdometer   Int?
+  isDone        Boolean         @default(false)
+  doneDate      DateTime?
+  doneOdometer  Int?
+
+  vehicle       Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  logs          TrackedItemLog[]
+  expenses      Expense[]
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  @@index([vehicleId])
+  @@index([itemType])
+  @@index([vehicleId, dueDate])
+}
+
+model TrackedItemLog {
+  id            Int         @id @default(autoincrement())
+  trackedItemId Int
+  logDate       DateTime
+  odometerKm    Int?
+  note          String?
+  createdAt     DateTime    @default(now())
+
+  trackedItem   TrackedItem @relation(fields: [trackedItemId], references: [id], onDelete: Cascade)
+
+  @@index([trackedItemId, logDate])
+}
+
+// === Expenses (exactly one context) ===
+model Expense {
+  id             Int              @id @default(autoincrement())
+  trackedItemId  Int?
+  vehicleEventId Int?
+  expenseDate    DateTime
+  amountEur      Decimal          @db.Decimal(12, 2)
+  category       ExpenseCategory
+  description    String?
+  vendor         String?
+
+  trackedItem    TrackedItem?     @relation(fields: [trackedItemId], references: [id], onDelete: Cascade)
+  vehicleEvent   VehicleEvent?    @relation(fields: [vehicleEventId], references: [id], onDelete: Cascade)
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@index([expenseDate])
+  @@index([trackedItemId])
+  @@index([vehicleEventId])
+  @@index([category])
 }
 
 model Maintenance {
