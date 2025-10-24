@@ -4,6 +4,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
+import multipart from '@fastify/multipart';
 
 import { env } from './env';
 import health from './routes/health';
@@ -31,10 +32,13 @@ export async function buildApp() {
 							options: { translateTime: 'HH:MM:ss', ignore: 'pid,hostname' },
 						},
 				  },
+		ajv: { customOptions: { keywords: ['isFile'] } },
 	});
 
 
 	await app.register(jwt, { secret: env.JWT_SECRET });
+
+	await app.register(multipart, { attachFieldsToBody: true, limits: { fileSize: 10_000_000 } });
 
 	if (!isTest) {
 		await app.register(helmet);

@@ -26,6 +26,8 @@ model Vehicle {
   brand        String
   model        String
   photoUrl     String?
+  photoBytes   Bytes?
+  photoMimeType String?
   year         Int?
   vehicleName  String?
   currentOdometerKm Int?

@@ -19,7 +19,7 @@ const idParamSchema = z.object({
 	id: z.coerce.number().int().positive(),
 });
 
-	export default async function vehicles(app: FastifyInstance) {
+export default async function vehicles(app: FastifyInstance) {
 		app.get(
 			'/vehicles',
 			{
@@ -224,6 +224,74 @@ const idParamSchema = z.object({
 
 			await prisma.vehicle.delete({ where: { id } });
 			return reply.status(204).send();
+		},
+	);
+
+	app.post(
+		'/vehicles/:id/photo',
+		{
+			preHandler: app.authenticate,
+			schema: {
+				tags: ['vehicles'],
+				summary: 'Upload vehicle photo',
+				security: [{ bearerAuth: [] }],
+				consumes: ['multipart/form-data'],
+				params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+				body: {
+					type: 'object',
+					properties: {
+						file: {
+							anyOf: [
+								{ type: 'string', format: 'binary' },
+								{ type: 'object' },
+							],
+						},
+					},
+				},
+				response: { 204: { type: 'null' } },
+			},
+		},
+		async (req: any, reply) => {
+			const userId = Number(req.user.sub);
+			const { id } = idParamSchema.parse(req.params);
+
+			const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
+			if (!vehicle) throw new AppError('Not found', 404);
+
+			let upload: any = (req as any).body?.file;
+			if (!upload || typeof upload.toBuffer !== 'function') {
+				upload = await (req as any).file();
+			}
+			if (!upload) throw new AppError('File is required', 400);
+			if (!upload.mimetype || !upload.mimetype.startsWith('image/')) throw new AppError('Only image files are accepted', 400);
+
+			const buf = await upload.toBuffer();
+			await prisma.vehicle.update({ where: { id }, data: { photoBytes: buf, photoMimeType: upload.mimetype } });
+			return reply.status(204).send();
+		},
+	);
+
+	app.get(
+		'/vehicles/:id/photo',
+		{
+			preHandler: app.authenticate,
+			schema: {
+				tags: ['vehicles'],
+				summary: 'Download vehicle photo',
+				security: [{ bearerAuth: [] }],
+				params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+				response: { 200: { type: 'string', format: 'binary' }, 404: { type: 'object', properties: { error: { type: 'string' } }, required: ['error'] } },
+			},
+		},
+		async (req: any, reply) => {
+			const userId = Number(req.user.sub);
+			const { id } = idParamSchema.parse(req.params);
+
+			const vehicle = await prisma.vehicle.findFirst({ where: { id, userId }, select: { photoBytes: true, photoMimeType: true } });
+			if (!vehicle || !vehicle.photoBytes) throw new AppError('Not found', 404);
+
+			reply.header('Content-Type', vehicle.photoMimeType || 'application/octet-stream');
+			return reply.send(Buffer.from(vehicle.photoBytes));
 		},
 	);
 }
