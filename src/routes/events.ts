@@ -26,7 +26,7 @@ export default async function events(app: FastifyInstance) {
             eventType: { type: 'string', enum: ['insurance', 'inspection', 'iuc', 'custom'] },
           },
         },
-        response: { 200: { type: 'array', items: { type: 'object' } } },
+        response: { 200: { type: 'array', items: { type: 'object', additionalProperties: true } } },
       },
     },
     async (req: any) => {
@@ -104,4 +104,3 @@ export default async function events(app: FastifyInstance) {
     },
   );
 }
-

@@ -24,7 +24,18 @@ export default async function trackedItems(app: FastifyInstance) {
             status: { type: 'string', enum: ['pending', 'done'] },
           },
         },
-        response: { 200: { type: 'array', items: { type: 'object' } } },
+        response: {
+          200: {
+            type: 'object',
+            required: ['data'],
+            properties: {
+              data: {
+                type: 'array',
+                items: { type: 'object', additionalProperties: true },
+              },
+            },
+          },
+        },
       },
     },
     async (req: any) => {
@@ -40,7 +51,7 @@ export default async function trackedItems(app: FastifyInstance) {
       if (status === 'done') where.isDone = true;
 
       const items = await prisma.trackedItem.findMany({ where, orderBy: [{ isDone: 'asc' }, { dueDate: 'asc' }] });
-      return items;
+      return { data: items };
     },
   );
 
@@ -182,7 +193,18 @@ export default async function trackedItems(app: FastifyInstance) {
         summary: 'List logs of a tracked item',
         security: [{ bearerAuth: [] }],
         params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
-        response: { 200: { type: 'array', items: { type: 'object' } } },
+        response: {
+          200: {
+            type: 'object',
+            required: ['data'],
+            properties: {
+              data: {
+                type: 'array',
+                items: { type: 'object', additionalProperties: true },
+              },
+            },
+          },
+        },
       },
     },
     async (req: any) => {
@@ -191,8 +213,7 @@ export default async function trackedItems(app: FastifyInstance) {
       const item = await prisma.trackedItem.findFirst({ where: { id }, include: { vehicle: true } });
       if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
       const logs = await prisma.trackedItemLog.findMany({ where: { trackedItemId: id }, orderBy: { logDate: 'desc' } });
-      return logs;
+      return { data: logs };
     },
   );
 }
-

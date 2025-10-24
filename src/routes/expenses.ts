@@ -20,7 +20,7 @@ export default async function expenses(app: FastifyInstance) {
           type: 'object',
           properties: { vehicleId: { type: 'integer', minimum: 1 }, from: { type: 'string', format: 'date' }, to: { type: 'string', format: 'date' }, category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','maintenance','service','fuel','toll','parking','other'] } },
         },
-        response: { 200: { type: 'object', required: ['data'], properties: { data: { type: 'array', items: { type: 'object' } } } } },
+        response: { 200: { type: 'object', required: ['data'], properties: { data: { type: 'array', items: { type: 'object', additionalProperties: true } } } } },
       },
     },
     async (req: any) => {
@@ -58,17 +58,56 @@ export default async function expenses(app: FastifyInstance) {
         summary: 'Create expense',
         security: [{ bearerAuth: [] }],
         body: {
-          type: 'object',
-          required: ['expenseDate', 'amountEur', 'category'],
-          properties: {
-            trackedItemId: { type: 'integer', minimum: 1 },
-            vehicleEventId: { type: 'integer', minimum: 1 },
-            expenseDate: { type: 'string', format: 'date' },
-            amountEur: { type: 'string' },
-            category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','maintenance','service','fuel','toll','parking','other'] },
-            description: { type: 'string' },
-            vendor: { type: 'string' },
-          },
+          oneOf: [
+            {
+              type: 'object',
+              required: ['trackedItemId', 'expenseDate', 'amountEur', 'category'],
+              properties: {
+                trackedItemId: { type: 'integer', minimum: 1 },
+                vehicleEventId: { type: 'integer', minimum: 1 },
+                expenseDate: { type: 'string', format: 'date' },
+                amountEur: { type: 'string' },
+                category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','maintenance','service','fuel','toll','parking','other'] },
+                description: { type: 'string' },
+                vendor: { type: 'string' },
+              },
+              not: { required: ['vehicleEventId'] },
+              examples: [
+                {
+                  trackedItemId: 1,
+                  expenseDate: '2025-10-24',
+                  amountEur: '20.00',
+                  category: 'part',
+                  description: 'escovas',
+                  vendor: 'ze'
+                }
+              ],
+            },
+            {
+              type: 'object',
+              required: ['vehicleEventId', 'expenseDate', 'amountEur', 'category'],
+              properties: {
+                trackedItemId: { type: 'integer', minimum: 1 },
+                vehicleEventId: { type: 'integer', minimum: 1 },
+                expenseDate: { type: 'string', format: 'date' },
+                amountEur: { type: 'string' },
+                category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','maintenance','service','fuel','toll','parking','other'] },
+                description: { type: 'string' },
+                vendor: { type: 'string' },
+              },
+              not: { required: ['trackedItemId'] },
+              examples: [
+                {
+                  vehicleEventId: 2,
+                  expenseDate: '2025-10-24',
+                  amountEur: '45.90',
+                  category: 'inspection',
+                  description: 'IPO',
+                  vendor: 'centro X'
+                }
+              ],
+            },
+          ],
         },
         response: { 201: { type: 'object', required: ['id'], properties: { id: { type: 'number' } } } },
       },
@@ -115,4 +154,3 @@ export default async function expenses(app: FastifyInstance) {
     },
   );
 }
-
