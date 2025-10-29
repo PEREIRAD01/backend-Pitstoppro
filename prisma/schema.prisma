@@ -25,7 +25,6 @@ model Vehicle {
   plate        String
   brand        String
   model        String
-  photoUrl     String?
   photoBytes   Bytes?
   photoMimeType String?
   year         Int?

@@ -7,7 +7,6 @@ const createSchema = z.object({
 	plate: z.string().min(1),
 	brand: z.string().min(1),
 	model: z.string().min(1),
-	photoUrl: z.string().url().optional(),
 	year: z.number().int().min(1900).max(2100).optional(),
 	vehicleName: z.string().min(1).optional(),
 	currentOdometerKm: z.number().int().min(0).optional(),
@@ -20,6 +19,83 @@ const idParamSchema = z.object({
 });
 
 export default async function vehicles(app: FastifyInstance) {
+		app.get(
+			'/vehicles/:id/overview',
+			{
+				preHandler: app.authenticate,
+				schema: {
+					tags: ['vehicles'],
+					summary: 'Get vehicle overview (details + upcoming + recent)',
+					security: [{ bearerAuth: [] }],
+					params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+					response: {
+						200: {
+							type: 'object',
+							required: ['vehicle', 'hasPhoto', 'upcomingEvents', 'pendingTrackedItems', 'recentExpenses'],
+							properties: {
+								vehicle: {
+									type: 'object',
+									properties: {
+										id: { type: 'number' },
+										plate: { type: 'string' },
+										brand: { type: 'string' },
+										model: { type: 'string' },
+                        year: { type: 'integer', nullable: true },
+                        vehicleName: { type: 'string', nullable: true },
+                        currentOdometerKm: { type: 'integer', nullable: true },
+									},
+									additionalProperties: true,
+								},
+								hasPhoto: { type: 'boolean' },
+								upcomingEvents: { type: 'array', items: { type: 'object', additionalProperties: true } },
+								pendingTrackedItems: { type: 'array', items: { type: 'object', additionalProperties: true } },
+								recentExpenses: { type: 'array', items: { type: 'object', additionalProperties: true } },
+							},
+						},
+						404: { type: 'object', required: ['error'], properties: { error: { type: 'string' } } },
+					},
+				},
+			},
+			async (req: any) => {
+				const userId = Number(req.user.sub);
+				const { id } = idParamSchema.parse(req.params);
+
+				const v = await prisma.vehicle.findFirst({
+					where: { id, userId },
+					select: {
+						id: true,
+						plate: true,
+						brand: true,
+						model: true,
+                        year: true,
+                        vehicleName: true,
+                        currentOdometerKm: true,
+                        photoBytes: true,
+					},
+				});
+				if (!v) throw new AppError('Not found', 404);
+
+                const hasPhoto = Boolean(v.photoBytes);
+				const { photoBytes, ...vehicle } = v as any;
+
+				const [upcomingEvents, pendingTrackedItems, recentExpenses] = await Promise.all([
+					prisma.vehicleEvent.findMany({ where: { vehicleId: id, isDone: false }, orderBy: { dueDate: 'asc' }, take: 5 }),
+					prisma.trackedItem.findMany({ where: { vehicleId: id, isDone: false }, orderBy: [{ dueDate: 'asc' }, { id: 'asc' }], take: 5 }),
+					prisma.expense.findMany({
+						where: {
+							OR: [
+								{ vehicleEvent: { vehicleId: id, vehicle: { userId } } },
+								{ trackedItem: { vehicleId: id, vehicle: { userId } } },
+							],
+						},
+						orderBy: { expenseDate: 'desc' },
+						take: 5,
+					}),
+				]);
+
+				return { vehicle, hasPhoto, upcomingEvents, pendingTrackedItems, recentExpenses };
+			},
+		);
 		app.get(
 			'/vehicles',
 			{
@@ -55,8 +131,7 @@ export default async function vehicles(app: FastifyInstance) {
 										id: { type: 'number' },
 										plate: { type: 'string' },
 										brand: { type: 'string' },
-										model: { type: 'string' },
-										photoUrl: { type: 'string', nullable: true },
+                        model: { type: 'string' },
 										year: { type: 'integer', nullable: true },
 										vehicleName: { type: 'string', nullable: true },
 										currentOdometerKm: { type: 'integer', nullable: true },
@@ -116,8 +191,7 @@ export default async function vehicles(app: FastifyInstance) {
 					properties: {
 						plate: { type: 'string' },
 						brand: { type: 'string' },
-						model: { type: 'string' },
-						photoUrl: { type: 'string' },
+                        model: { type: 'string' },
 						year: { type: 'integer', minimum: 1900, maximum: 2100 },
 						vehicleName: { type: 'string' },
 						currentOdometerKm: { type: 'integer', minimum: 0 },
