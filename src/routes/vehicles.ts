@@ -78,10 +78,38 @@ export default async function vehicles(app: FastifyInstance) {
                 const hasPhoto = Boolean(v.photoBytes);
 				const { photoBytes, ...vehicle } = v as any;
 
-				const [upcomingEvents, pendingTrackedItems, recentExpenses] = await Promise.all([
-					prisma.vehicleEvent.findMany({ where: { vehicleId: id, isDone: false }, orderBy: { dueDate: 'asc' }, take: 5 }),
-					prisma.trackedItem.findMany({ where: { vehicleId: id, isDone: false }, orderBy: [{ dueDate: 'asc' }, { id: 'asc' }], take: 5 }),
-					prisma.expense.findMany({
+				const now = new Date();
+				const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+				// Eventos: dueDate é obrigatório por schema → basta ordenar por dueDate asc
+				const events = await prisma.vehicleEvent.findMany({
+					where: { vehicleId: id, isDone: false },
+					orderBy: { dueDate: 'asc' },
+					take: 5,
+				});
+				const upcomingEvents = events.map((e) => {
+					const isOverdue = e.dueDate ? new Date(e.dueDate) < startOfToday : false;
+					const daysOverdue = isOverdue && e.dueDate ? Math.floor((startOfToday.getTime() - new Date(e.dueDate).getTime()) / 86400000) : 0;
+					return { ...e, isOverdue, daysOverdue };
+				});
+
+				// Tracked items: com dueDate primeiro, depois sem dueDate (até 5 no total)
+				const tiWithDue = await prisma.trackedItem.findMany({
+					where: { vehicleId: id, isDone: false, dueDate: { not: null } },
+					orderBy: { dueDate: 'asc' },
+					take: 5,
+				});
+				const remainingT = Math.max(0, 5 - tiWithDue.length);
+				const tiNoDue = remainingT > 0 ? await prisma.trackedItem.findMany({ where: { vehicleId: id, isDone: false, dueDate: null }, orderBy: { id: 'asc' }, take: remainingT }) : [];
+				const rawTracked = [...tiWithDue, ...tiNoDue] as any[];
+				const pendingTrackedItems = rawTracked.map((t) => {
+					const due = t.dueDate ? new Date(t.dueDate) : null;
+					const isOverdue = due ? due < startOfToday : false;
+					const daysOverdue = isOverdue && due ? Math.floor((startOfToday.getTime() - due.getTime()) / 86400000) : 0;
+					return { ...t, isOverdue, daysOverdue };
+				});
+
+				const recentExpenses = await prisma.expense.findMany({
 						where: {
 							OR: [
 								{ vehicleEvent: { vehicleId: id, vehicle: { userId } } },
@@ -90,8 +118,7 @@ export default async function vehicles(app: FastifyInstance) {
 						},
 						orderBy: { expenseDate: 'desc' },
 						take: 5,
-					}),
-				]);
+					});
 
 				return { vehicle, hasPhoto, upcomingEvents, pendingTrackedItems, recentExpenses };
 			},
@@ -166,6 +193,15 @@ export default async function vehicles(app: FastifyInstance) {
 			const [data, total] = await Promise.all([
 				prisma.vehicle.findMany({
 					where: { userId },
+					select: {
+						id: true,
+						plate: true,
+						brand: true,
+						model: true,
+						year: true,
+						vehicleName: true,
+						currentOdometerKm: true,
+					},
 					orderBy: { [field]: dir },
 					skip: (page - 1) * limit,
 					take: limit,
@@ -230,52 +266,60 @@ export default async function vehicles(app: FastifyInstance) {
 		},
 	);
 
-	app.patch(
-		'/vehicles/:id',
-		{
-			preHandler: app.authenticate,
-			schema: {
-				tags: ['vehicles'],
-				summary: 'Update a vehicle',
-				security: [{ bearerAuth: [] }],
-				params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
-				body: {
-					type: 'object',
-					properties: {
-						plate: { type: 'string' },
-						brand: { type: 'string' },
-						model: { type: 'string' },
-						photoUrl: { type: 'string' },
-						year: { type: 'integer', minimum: 1900, maximum: 2100 },
-						vehicleName: { type: 'string' },
-						currentOdometerKm: { type: 'integer', minimum: 0 },
-					},
-				},
-				response: {
-					200: {
-						type: 'object',
-						required: ['id'],
-						properties: { id: { type: 'number' } },
-					},
-				},
-			},
-		},
-		async (req: any) => {
-			const userId = Number(req.user.sub);
-			const { id } = idParamSchema.parse(req.params);
-			const data = updateSchema.parse(req.body);
+    app.patch(
+        '/vehicles/:id',
+        {
+            preHandler: app.authenticate,
+            schema: {
+                tags: ['vehicles'],
+                summary: 'Update a vehicle',
+                security: [{ bearerAuth: [] }],
+                params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+                body: {
+                    type: 'object',
+                    properties: {
+                        plate: { type: 'string' },
+                        brand: { type: 'string' },
+                        model: { type: 'string' },
+                        year: { type: 'integer', minimum: 1900, maximum: 2100 },
+                        vehicleName: { type: 'string' },
+                        currentOdometerKm: { type: 'integer', minimum: 0 },
+                    },
+                },
+                response: {
+                    200: {
+                        type: 'object',
+                        required: ['id'],
+                        properties: { id: { type: 'number' } },
+                    },
+                },
+            },
+        },
+        async (req: any) => {
+            const userId = Number(req.user.sub);
+            const { id } = idParamSchema.parse(req.params);
+            const data = updateSchema.parse(req.body);
 
-			const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
-			if (!vehicle) throw new AppError('Not found', 404);
+            const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
+            if (!vehicle) throw new AppError('Not found', 404);
 
-			const updated = await prisma.vehicle.update({
-				where: { id },
-				data,
-			});
+            // If updating plate, ensure uniqueness per user
+            if (data.plate && data.plate !== vehicle.plate) {
+                const conflict = await prisma.vehicle.findFirst({
+                    where: { userId, plate: data.plate, NOT: { id: id } },
+                    select: { id: true },
+                });
+                if (conflict) throw new AppError('Vehicle with this plate already exists', 409);
+            }
 
-			return { id: updated.id };
-		},
-	);
+            const updated = await prisma.vehicle.update({
+                where: { id },
+                data,
+            });
+
+            return { id: updated.id };
+        },
+    );
 
 	app.delete(
 		'/vehicles/:id',
