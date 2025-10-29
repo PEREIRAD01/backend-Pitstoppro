@@ -153,7 +153,11 @@ export default async function trackedItems(app: FastifyInstance) {
       const item = await prisma.trackedItem.findFirst({ where: { id }, include: { vehicle: true } });
       if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
 
-      const updated = await prisma.trackedItem.update({ where: { id }, data });
+      // Regra: se isDone=false, limpar sempre doneDate
+      const payload: any = { ...data };
+      if (payload.isDone === false) payload.doneDate = null;
+
+      const updated = await prisma.trackedItem.update({ where: { id }, data: payload });
       return { id: updated.id };
     },
   );

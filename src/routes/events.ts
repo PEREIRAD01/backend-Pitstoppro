@@ -99,7 +99,11 @@ export default async function events(app: FastifyInstance) {
       const event = await prisma.vehicleEvent.findFirst({ where: { id }, include: { vehicle: true } });
       if (!event || event.vehicle.userId !== userId) throw new AppError('Not found', 404);
 
-      const updated = await prisma.vehicleEvent.update({ where: { id }, data });
+      // Regra: se isDone=false, limpar sempre doneDate
+      const payload: any = { ...data };
+      if (payload.isDone === false) payload.doneDate = null;
+
+      const updated = await prisma.vehicleEvent.update({ where: { id }, data: payload });
       return { id: updated.id };
     },
   );
