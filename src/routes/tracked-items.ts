@@ -153,14 +153,47 @@ export default async function trackedItems(app: FastifyInstance) {
         summary: 'Create a log for a tracked item',
         security: [{ bearerAuth: [] }],
         params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
-        body: { type: 'object', required: ['logDate'], properties: { logDate: { type: 'string', format: 'date' }, odometerKm: { type: 'integer' }, note: { type: 'string' } } },
+        body: {
+          type: 'object',
+          required: ['logDate'],
+          properties: {
+            logDate: { type: 'string', format: 'date' },
+            odometerKm: { type: 'integer' },
+            note: { type: 'string' },
+            expense: {
+              type: 'object',
+              properties: {
+                expenseDate: { type: 'string', format: 'date' },
+                amountEur: { type: 'string' },
+                category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','custom'] },
+                description: { type: 'string' },
+                vendor: { type: 'string' },
+              },
+            },
+          },
+        },
         response: { 201: { type: 'object', required: ['id'], properties: { id: { type: 'number' } } } },
       },
     },
     async (req: any, reply) => {
       const userId = Number(req.user.sub);
       const { id } = idParam.parse(req.params);
-      const body = z.object({ logDate: z.coerce.date(), odometerKm: z.number().int().optional(), note: z.string().optional() }).parse(req.body);
+      const body = z
+        .object({
+          logDate: z.coerce.date(),
+          odometerKm: z.number().int().optional(),
+          note: z.string().optional(),
+          expense: z
+            .object({
+              expenseDate: z.coerce.date().optional(),
+              amountEur: z.string(),
+              category: z.enum(['part','event','insurance','inspection','iuc','custom']),
+              description: z.string().optional(),
+              vendor: z.string().optional(),
+            })
+            .optional(),
+        })
+        .parse(req.body);
 
       const result = await svcCreateLog(userId, id, body as any);
       return reply.code(201).send(result);

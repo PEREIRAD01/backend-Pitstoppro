@@ -63,3 +63,17 @@ export async function createExpenseRecord(input: CreateExpenseInput) {
     },
   });
 }
+
+export async function findExpenseDuplicateForTI(trackedItemId: number, expenseDate: Date, amountEur: string) {
+  return prisma.expense.findFirst({
+    where: { trackedItemId, expenseDate, amountEur: amountEur as any },
+    select: { id: true },
+  });
+}
+
+export async function findExpenseDuplicateForVE(vehicleEventId: number, expenseDate: Date, amountEur: string) {
+  return prisma.expense.findFirst({
+    where: { vehicleEventId, expenseDate, amountEur: amountEur as any },
+    select: { id: true },
+  });
+}
