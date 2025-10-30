@@ -2,6 +2,8 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/prisma';
 import { AppError } from '../errors';
+import { createExpense as svcCreateExpense } from '../services/expenses-service';
+import { listForVehicle as svcListForVehicle, createForVehicle as svcCreateForVehicle, updateEvent as svcUpdateEvent } from '../services/events-service';
 
 const eventTypeEnum = z.enum(['insurance', 'inspection', 'iuc', 'custom']);
 
@@ -32,19 +34,13 @@ export default async function events(app: FastifyInstance) {
     async (req: any) => {
       const userId = Number(req.user.sub);
       const { id: vehicleId } = idParam.parse(req.params);
-
-      const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, userId }, select: { id: true } });
-      if (!vehicle) throw new AppError('Not found', 404);
-
-      const { status, from, to, eventType } = req.query as any;
-      const where: any = { vehicleId };
-      if (status === 'pending') where.isDone = false;
-      if (status === 'done') where.isDone = true;
-      if (from || to) where.dueDate = { ...(from ? { gte: new Date(from) } : {}), ...(to ? { lte: new Date(to) } : {}) };
-      if (eventType) where.eventType = eventType;
-
-      const items = await prisma.vehicleEvent.findMany({ where, orderBy: { dueDate: 'asc' } });
-      return items;
+      const q = req.query as any;
+      return svcListForVehicle(userId, vehicleId, {
+        status: q.status,
+        from: q.from ? new Date(q.from) : undefined,
+        to: q.to ? new Date(q.to) : undefined,
+        eventType: q.eventType,
+      });
     },
   );
 
@@ -70,11 +66,8 @@ export default async function events(app: FastifyInstance) {
       const { id: vehicleId } = idParam.parse(req.params);
       const body = z.object({ eventType: eventTypeEnum, dueDate: z.coerce.date(), note: z.string().optional() }).parse(req.body);
 
-      const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, userId }, select: { id: true } });
-      if (!vehicle) throw new AppError('Not found', 404);
-
-      const created = await prisma.vehicleEvent.create({ data: { vehicleId, eventType: body.eventType, dueDate: body.dueDate, note: body.note } });
-      return reply.code(201).send({ id: created.id });
+      const result = await svcCreateForVehicle(userId, vehicleId, body);
+      return reply.code(201).send(result);
     },
   );
 
@@ -87,24 +80,47 @@ export default async function events(app: FastifyInstance) {
         summary: 'Update vehicle event',
         security: [{ bearerAuth: [] }],
         params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
-        body: { type: 'object', properties: { isDone: { type: 'boolean' }, doneDate: { type: 'string', format: 'date' }, note: { type: 'string' } } },
+        body: {
+          type: 'object',
+          properties: {
+            isDone: { type: 'boolean' },
+            doneDate: { type: 'string', format: 'date' },
+            note: { type: 'string' },
+            expense: {
+              type: 'object',
+              properties: {
+                expenseDate: { type: 'string', format: 'date' },
+                amountEur: { type: 'string' },
+              category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','custom'] },
+                description: { type: 'string' },
+                vendor: { type: 'string' },
+              },
+            },
+          },
+        },
         response: { 200: { type: 'object', required: ['id'], properties: { id: { type: 'number' } } } },
       },
     },
     async (req: any) => {
       const userId = Number(req.user.sub);
       const { id } = idParam.parse(req.params);
-      const data = z.object({ isDone: z.boolean().optional(), doneDate: z.coerce.date().optional(), note: z.string().optional() }).parse(req.body);
-
-      const event = await prisma.vehicleEvent.findFirst({ where: { id }, include: { vehicle: true } });
-      if (!event || event.vehicle.userId !== userId) throw new AppError('Not found', 404);
-
-      // Regra: se isDone=false, limpar sempre doneDate
-      const payload: any = { ...data };
-      if (payload.isDone === false) payload.doneDate = null;
-
-      const updated = await prisma.vehicleEvent.update({ where: { id }, data: payload });
-      return { id: updated.id };
+      const data = z
+        .object({
+          isDone: z.boolean().optional(),
+          doneDate: z.coerce.date().optional(),
+          note: z.string().optional(),
+          expense: z
+            .object({
+              expenseDate: z.coerce.date().optional(),
+              amountEur: z.string(),
+              category: z.enum(['part','event','insurance','inspection','iuc']),
+              description: z.string().optional(),
+              vendor: z.string().optional(),
+            })
+            .optional(),
+        })
+        .parse(req.body);
+      return svcUpdateEvent(userId, id, data as any);
     },
   );
 }

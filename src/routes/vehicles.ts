@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../db/prisma';
 import { z } from 'zod';
 import { AppError } from '../errors';
+import { createVehicle as svcCreateVehicle, updateVehicle as svcUpdateVehicle, listVehicles as svcListVehicles, deleteVehicle as svcDeleteVehicle } from '../services/vehicles-service';
 
 const createSchema = z.object({
 	plate: z.string().min(1),
@@ -187,31 +188,12 @@ export default async function vehicles(app: FastifyInstance) {
 					.default('id:desc'),
 			});
 
-			const { page, limit, sort } = qSchema.parse(req.query);
-			const [field, dir] = sort.split(':') as ['id' | 'plate' | 'brand' | 'model', 'asc' | 'desc'];
+            const { page, limit, sort } = qSchema.parse(req.query);
+            const [field, dir] = sort.split(':') as ['id' | 'plate' | 'brand' | 'model', 'asc' | 'desc'];
 
-			const [data, total] = await Promise.all([
-				prisma.vehicle.findMany({
-					where: { userId },
-					select: {
-						id: true,
-						plate: true,
-						brand: true,
-						model: true,
-						year: true,
-						vehicleName: true,
-						currentOdometerKm: true,
-					},
-					orderBy: { [field]: dir },
-					skip: (page - 1) * limit,
-					take: limit,
-				}),
-				prisma.vehicle.count({ where: { userId } }),
-			]);
-
-			return { data, page, limit, total, pages: Math.ceil(total / limit) };
-		},
-	);
+            return svcListVehicles(userId, { page, limit, sortField: field, sortDir: dir });
+        },
+    );
 
 	app.post(
 		'/vehicles',
@@ -249,21 +231,13 @@ export default async function vehicles(app: FastifyInstance) {
 				},
 			},
 		},
-		async (req: any, reply) => {
-			const userId = Number(req.user.sub);
-			const data = createSchema.parse(req.body);
+    async (req: any, reply) => {
+            const userId = Number(req.user.sub);
+            const data = createSchema.parse(req.body);
 
-			const exists = await prisma.vehicle.findFirst({
-				where: { userId, plate: data.plate },
-			});
-			if (exists) throw new AppError('Vehicle with this plate already exists', 409);
-
-			const created = await prisma.vehicle.create({
-				data: { ...data, userId },
-			});
-
-			return reply.code(201).send({ id: created.id });
-		},
+            const result = await svcCreateVehicle(userId, data);
+            return reply.code(201).send(result);
+        },
 	);
 
     app.patch(
@@ -295,29 +269,12 @@ export default async function vehicles(app: FastifyInstance) {
                 },
             },
         },
-        async (req: any) => {
+    async (req: any) => {
             const userId = Number(req.user.sub);
             const { id } = idParamSchema.parse(req.params);
             const data = updateSchema.parse(req.body);
 
-            const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
-            if (!vehicle) throw new AppError('Not found', 404);
-
-            // If updating plate, ensure uniqueness per user
-            if (data.plate && data.plate !== vehicle.plate) {
-                const conflict = await prisma.vehicle.findFirst({
-                    where: { userId, plate: data.plate, NOT: { id: id } },
-                    select: { id: true },
-                });
-                if (conflict) throw new AppError('Vehicle with this plate already exists', 409);
-            }
-
-            const updated = await prisma.vehicle.update({
-                where: { id },
-                data,
-            });
-
-            return { id: updated.id };
+            return svcUpdateVehicle(userId, id, data);
         },
     );
 
@@ -333,16 +290,13 @@ export default async function vehicles(app: FastifyInstance) {
 				response: { 204: { type: 'null' } },
 			},
 		},
-		async (req: any, reply) => {
-			const userId = Number(req.user.sub);
-			const { id } = idParamSchema.parse(req.params);
+        async (req: any, reply) => {
+            const userId = Number(req.user.sub);
+            const { id } = idParamSchema.parse(req.params);
 
-			const vehicle = await prisma.vehicle.findFirst({ where: { id, userId } });
-			if (!vehicle) throw new AppError('Not found', 404);
-
-			await prisma.vehicle.delete({ where: { id } });
-			return reply.status(204).send();
-		},
+            await svcDeleteVehicle(userId, id);
+            return reply.status(204).send();
+        },
 	);
 
 	app.post(

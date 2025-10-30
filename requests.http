@@ -1,43 +1,155 @@
+# PitStop Pro — Requests (VS Code REST Client)
+
 @base = http://localhost:3333/v1
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOjIsImlhdCI6MTc2MDY1MzU5MywiZXhwIjoxNzYwNzM5OTkzfQ.eCG8J871eZcf1ZPDvAA3ohNzJ1WQGXc8susW33Tlync
+@token = REPLACE_WITH_JWT
+@vehicleId = 1
+@eventId = 1
+@trackedItemId = 1
 
 ### Health
 GET {{base}}/health
 
+### Register (copiar token da resposta e colar acima)
+POST {{base}}/auth/register
+Content-Type: application/json
 
-### Login  (copiar o token da resposta e colocar em cima)
+{ "email": "user{{timestamp}}@example.com", "password": "12345678", "displayName": "Daniel" }
+
+### Login (copiar token da resposta e colar acima)
 POST {{base}}/auth/login
 Content-Type: application/json
 
-{"email":"daniel2@test.com","password":"12345678"}
-
+{ "email": "user@example.com", "password": "12345678" }
 
 ### Me
 GET {{base}}/auth/me
 Authorization: Bearer {{token}}
 
-
-### List Vehicles
+### Vehicles — List
 GET {{base}}/vehicles
 Authorization: Bearer {{token}}
 
-
-### Create Vehicle 
+### Vehicles — Create
 POST {{base}}/vehicles
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{"plate":"AA-00-ZZ","brand":"Harley Davidson","model":"Street Bob","photoUrl":"https://static1.hotcarsimages.com/wordpress/wp-content/uploads/2023/10/23-fxbb-street-bob-beauty-bc-0009-edit-1.jpg"}
+{ "plate": "AA-00-ZZ", "brand": "Nissan", "model": "Juke", "year": 2020 }
 
-
-### Update Vehicle (PATCH)
-PATCH {{base}}/vehicles/3
+### Vehicles — Patch (update some field)
+PATCH {{base}}/vehicles/{{vehicleId}}
 Authorization: Bearer {{token}}
 Content-Type: application/json
 
-{"model":"Street Bob (2020)"}
+{ "vehicleName": "O Juke" }
 
-
-### Delete Vehicle
-DELETE {{base}}/vehicles/1
+### Vehicles — Delete
+DELETE {{base}}/vehicles/{{vehicleId}}
 Authorization: Bearer {{token}}
+
+### Events — List by vehicle
+GET {{base}}/vehicles/{{vehicleId}}/events?status=pending
+Authorization: Bearer {{token}}
+
+### Events — Create
+POST {{base}}/vehicles/{{vehicleId}}/events
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "eventType": "inspection", "dueDate": "2025-11-03", "note": "IPO" }
+
+### Events — Patch
+PATCH {{base}}/events/{{eventId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "isDone": true, "doneDate": "2025-11-04" }
+
+### Tracked Items — List by vehicle
+GET {{base}}/vehicles/{{vehicleId}}/tracked-items
+Authorization: Bearer {{token}}
+
+### Tracked Items — Create
+POST {{base}}/vehicles/{{vehicleId}}/tracked-items
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "name": "Troca de óleo",
+  "itemType": "part",
+  "validKm": 6000
+}
+
+### Tracked Items — Patch
+PATCH {{base}}/tracked-items/{{trackedItemId}}
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "isDone": true, "doneDate": "2025-10-21" }
+
+### Tracked Items — Add Log
+POST {{base}}/tracked-items/{{trackedItemId}}/logs
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "logDate": "2025-10-21", "odometerKm": 12345 }
+
+### Tracked Items — List Logs
+GET {{base}}/tracked-items/{{trackedItemId}}/logs
+Authorization: Bearer {{token}}
+
+### Expenses — List
+GET {{base}}/expenses?vehicleId={{vehicleId}}
+Authorization: Bearer {{token}}
+
+### Expenses — Create (trackedItemId)
+POST {{base}}/expenses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "trackedItemId": {{trackedItemId}},
+  "expenseDate": "2025-10-24",
+  "amountEur": "20.00",
+  "category": "part",
+  "description": "escovas",
+  "vendor": "ze"
+}
+
+### Expenses — Create (vehicleEventId)
+POST {{base}}/expenses
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "vehicleEventId": {{eventId}},
+  "expenseDate": "2025-10-24",
+  "amountEur": "45.90",
+  "category": "inspection",
+  "description": "IPO",
+  "vendor": "centro X"
+}
+
+############################################
+# para testar Upload/Download Foto
+############################################
+
+# cURL (PowerShell)
+# 1) $file = "C:\\caminho\\para\\foto.jpg"
+# 2) $auth = "Authorization: Bearer {{token}}"
+# 3) $fcmd = 'file=@"' + $file + '";type=image/jpeg'
+# 4) curl.exe -X POST "{{base}}/vehicles/{{vehicleId}}/photo" -H $auth -F $fcmd
+# 5) curl.exe -H $auth -o "$env:TEMP\\foto_baixada.jpg" "{{base}}/vehicles/{{vehicleId}}/photo"
+
+# REST Client 
+# colocar o caminho para o ficheiro e manter o boundary igual
+POST {{base}}/vehicles/{{vehicleId}}/photo
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=MyBoundary
+
+--MyBoundary
+Content-Disposition: form-data; name="file"; filename="foto.jpg"
+Content-Type: image/jpeg
+
+< C:\\caminho\\para\\foto.jpg
+--MyBoundary--
