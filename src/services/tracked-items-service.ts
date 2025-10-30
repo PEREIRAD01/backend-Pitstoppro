@@ -1,4 +1,6 @@
 import { AppError } from '../errors';
+import { createExpense } from './expenses-service';
+import type { ExpenseCategory } from '../repos/expense-repo';
 import {
   findVehicleOwned,
   listByVehicle,
@@ -45,10 +47,35 @@ export async function updateItem(userId: number, id: number, data: UpdateTracked
   return { id: updated.id };
 }
 
-export async function createLog(userId: number, id: number, input: CreateLogInput) {
+type ExpenseInlineInput = {
+  expenseDate?: Date;
+  amountEur: string;
+  category: ExpenseCategory;
+  description?: string;
+  vendor?: string;
+};
+
+export async function createLog(
+  userId: number,
+  id: number,
+  input: CreateLogInput & { expense?: ExpenseInlineInput },
+) {
   const item = await findOwnedItem(id);
   if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
   const created = await createLogRecord(id, input);
+
+  if (input.expense && input.expense.amountEur && input.expense.category) {
+    const expenseDate = input.expense.expenseDate ?? input.logDate;
+    await createExpense(userId, {
+      trackedItemId: id,
+      expenseDate,
+      amountEur: input.expense.amountEur,
+      category: input.expense.category,
+      description: input.expense.description,
+      vendor: input.expense.vendor,
+    });
+  }
+
   return { id: created.id };
 }
 
