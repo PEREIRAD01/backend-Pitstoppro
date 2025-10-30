@@ -2,6 +2,7 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import prisma from '../db/prisma';
 import { AppError } from '../errors';
+import { listForVehicle as svcListForVehicle, createForVehicle as svcCreateForVehicle, updateItem as svcUpdateItem, createLog as svcCreateLog, listLogs as svcListLogs } from '../services/tracked-items-service';
 
 const itemTypeEnum = z.enum(['event', 'part']);
 
@@ -41,17 +42,8 @@ export default async function trackedItems(app: FastifyInstance) {
     async (req: any) => {
       const userId = Number(req.user.sub);
       const { id: vehicleId } = idParam.parse(req.params);
-      const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, userId }, select: { id: true } });
-      if (!vehicle) throw new AppError('Not found', 404);
-
-      const { type, status } = req.query as any;
-      const where: any = { vehicleId };
-      if (type) where.itemType = type;
-      if (status === 'pending') where.isDone = false;
-      if (status === 'done') where.isDone = true;
-
-      const items = await prisma.trackedItem.findMany({ where, orderBy: [{ isDone: 'asc' }, { dueDate: 'asc' }] });
-      return { data: items };
+      const q = req.query as any;
+      return svcListForVehicle(userId, vehicleId, { type: q.type, status: q.status });
     },
   );
 
@@ -85,8 +77,6 @@ export default async function trackedItems(app: FastifyInstance) {
     async (req: any, reply) => {
       const userId = Number(req.user.sub);
       const { id: vehicleId } = idParam.parse(req.params);
-      const vehicle = await prisma.vehicle.findFirst({ where: { id: vehicleId, userId }, select: { id: true } });
-      if (!vehicle) throw new AppError('Not found', 404);
 
       const body = z
         .object({
@@ -102,8 +92,8 @@ export default async function trackedItems(app: FastifyInstance) {
         })
         .parse(req.body);
 
-      const created = await prisma.trackedItem.create({ data: { vehicleId, ...body } });
-      return reply.code(201).send({ id: created.id });
+      const result = await svcCreateForVehicle(userId, vehicleId, body as any);
+      return reply.code(201).send(result);
     },
   );
 
@@ -150,15 +140,7 @@ export default async function trackedItems(app: FastifyInstance) {
         })
         .parse(req.body);
 
-      const item = await prisma.trackedItem.findFirst({ where: { id }, include: { vehicle: true } });
-      if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
-
-      // Regra: se isDone=false, limpar sempre doneDate
-      const payload: any = { ...data };
-      if (payload.isDone === false) payload.doneDate = null;
-
-      const updated = await prisma.trackedItem.update({ where: { id }, data: payload });
-      return { id: updated.id };
+      return svcUpdateItem(userId, id, data as any);
     },
   );
 
@@ -180,11 +162,8 @@ export default async function trackedItems(app: FastifyInstance) {
       const { id } = idParam.parse(req.params);
       const body = z.object({ logDate: z.coerce.date(), odometerKm: z.number().int().optional(), note: z.string().optional() }).parse(req.body);
 
-      const item = await prisma.trackedItem.findFirst({ where: { id }, include: { vehicle: true } });
-      if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
-
-      const created = await prisma.trackedItemLog.create({ data: { trackedItemId: id, logDate: body.logDate, odometerKm: body.odometerKm, note: body.note } });
-      return reply.code(201).send({ id: created.id });
+      const result = await svcCreateLog(userId, id, body as any);
+      return reply.code(201).send(result);
     },
   );
 
@@ -214,10 +193,7 @@ export default async function trackedItems(app: FastifyInstance) {
     async (req: any) => {
       const userId = Number(req.user.sub);
       const { id } = idParam.parse(req.params);
-      const item = await prisma.trackedItem.findFirst({ where: { id }, include: { vehicle: true } });
-      if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
-      const logs = await prisma.trackedItemLog.findMany({ where: { trackedItemId: id }, orderBy: { logDate: 'desc' } });
-      return { data: logs };
+      return svcListLogs(userId, id);
     },
   );
 }

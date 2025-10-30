@@ -60,12 +60,7 @@ enum ExpenseCategory {
   insurance
   inspection
   iuc
-  maintenance
-  service
-  fuel
-  toll
-  parking
-  other
+  custom
 }
 
 // === Vehicle events ===

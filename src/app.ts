@@ -14,6 +14,7 @@ import events from './routes/events';
 import expenses from './routes/expenses';
 import trackedItems from './routes/tracked-items';
 import dashboard from './routes/dashboard';
+import meta from './routes/meta';
 import authGuard from './plugins/auth-guard';
 import { registerErrorHandler } from './errors';
 import prisma from './db/prisma';
@@ -83,6 +84,7 @@ export async function buildApp() {
 	app.register(expenses, { prefix: '/v1' });
 	app.register(trackedItems, { prefix: '/v1' });
   app.register(dashboard, { prefix: '/v1' });
+  app.register(meta, { prefix: '/v1' });
 
 	return app;
 }
