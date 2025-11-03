@@ -80,4 +80,29 @@ describe('events-service updateEvent', () => {
       vendor: undefined,
     });
   });
+
+  it('falls back to current date when expenseDate and doneDate are missing', async () => {
+    const now = new Date('2024-06-01T10:00:00Z');
+    vi.useFakeTimers().setSystemTime(now);
+    vi.mocked(findOwnedEvent).mockResolvedValueOnce(baseEvent as any);
+    vi.mocked(updateEventRecord).mockResolvedValueOnce({ id: 42 } as any);
+
+    await updateEvent(7, 42, {
+      expense: {
+        amountEur: '45.00',
+        category: 'custom',
+      },
+    } as any);
+
+    expect(createExpense).toHaveBeenCalledWith(7, {
+      vehicleEventId: 42,
+      expenseDate: now,
+      amountEur: '45.00',
+      category: 'custom',
+      description: undefined,
+      vendor: undefined,
+    });
+
+    vi.useRealTimers();
+  });
 });

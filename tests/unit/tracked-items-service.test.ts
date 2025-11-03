@@ -1,8 +1,10 @@
 /// <reference types="vitest/globals" />
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { updateItem, createLog } from '../../src/services/tracked-items-service';
+import { listForVehicle, updateItem, createLog } from '../../src/services/tracked-items-service';
 import {
   findOwnedItem,
+  findVehicleOwned,
+  listByVehicle,
   updateItemRecord,
   createLogRecord,
 } from '../../src/repos/tracked-item-repo';
@@ -26,6 +28,31 @@ const baseItem = {
   id: 55,
   vehicle: { userId: 9 },
 };
+
+describe('tracked-items-service listForVehicle', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it('rejects with 404 when vehicle not owned by user', async () => {
+    vi.mocked(findVehicleOwned).mockResolvedValueOnce(null as any);
+
+    await expect(
+      listForVehicle(9, 11, {}),
+    ).rejects.toMatchObject({ status: 404 });
+    expect(listByVehicle).not.toHaveBeenCalled();
+  });
+
+  it('applies filters for type and status', async () => {
+    vi.mocked(findVehicleOwned).mockResolvedValueOnce({ id: 11 } as any);
+    vi.mocked(listByVehicle).mockResolvedValueOnce([{ id: 1 }] as any);
+
+    const result = await listForVehicle(9, 11, { type: 'part', status: 'done' });
+
+    expect(listByVehicle).toHaveBeenCalledWith(11, { itemType: 'part', isDone: true });
+    expect(result).toEqual({ data: [{ id: 1 }] });
+  });
+});
 
 describe('tracked-items-service updateItem', () => {
   beforeEach(() => {
