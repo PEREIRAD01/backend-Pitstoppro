@@ -41,8 +41,10 @@ export default async function expenses(app: FastifyInstance) {
     {
       preHandler: app.authenticate,
       schema: {
+        hide: true,
         tags: ['expenses'],
-        summary: 'Create expense',
+        summary: 'Create expense (internal)',
+        description: 'Expenses are created automatically when completing an event or tracked item log.',
         security: [{ bearerAuth: [] }],
         body: {
           oneOf: [
