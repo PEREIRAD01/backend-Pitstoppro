@@ -1,11 +1,9 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
-import prisma from '../db/prisma';
-import { AppError } from '../errors';
-import { createExpense as svcCreateExpense } from '../services/expenses-service';
 import { listForVehicle as svcListForVehicle, createForVehicle as svcCreateForVehicle, updateEvent as svcUpdateEvent } from '../services/events-service';
 
 const eventTypeEnum = z.enum(['insurance', 'inspection', 'iuc', 'custom']);
+const expenseCategoryEnum = z.enum(['part', 'event', 'insurance', 'inspection', 'iuc', 'custom']);
 
 export default async function events(app: FastifyInstance) {
   const idParam = z.object({ id: z.coerce.number().int().positive() });
@@ -113,7 +111,7 @@ export default async function events(app: FastifyInstance) {
             .object({
               expenseDate: z.coerce.date().optional(),
               amountEur: z.string(),
-              category: z.enum(['part','event','insurance','inspection','iuc']),
+              category: expenseCategoryEnum,
               description: z.string().optional(),
               vendor: z.string().optional(),
             })

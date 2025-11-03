@@ -12,31 +12,44 @@ export class AppError extends Error {
 }
 
 export function registerErrorHandler(app: FastifyInstance) {
-  app.setErrorHandler((err, _req, reply) => {
+  app.setErrorHandler((err, req, reply) => {
     if (err instanceof AppError) {
       return reply.status(err.status).send({ error: err.message });
     }
 
     if (err instanceof ZodError) {
-      return reply.status(400).send({ error: 'ValidationError' });
+      return reply.status(400).send({
+        error: 'ValidationError',
+        details: err.issues.map(issue => ({
+          path: issue.path.join('.'),
+          message: issue.message,
+        })),
+      });
+    }
+
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return reply.status(409).send({ error: 'UniqueConstraint' });
     }
 
     const anyErr = err as any;
-    if (anyErr && anyErr.code === 'FST_ERR_CTP_INVALID_JSON') {
+    const code = typeof anyErr?.code === 'string' ? anyErr.code : undefined;
+
+    if (code === 'FST_ERR_CTP_INVALID_JSON' || code === 'FST_ERR_CTP_INVALID_JSON_BODY') {
       return reply.status(400).send({ error: 'InvalidJson' });
     }
 
-    if (anyErr && typeof anyErr.code === 'string' && anyErr.code.startsWith('FST_JWT_')) {
+    if (code && code.startsWith('FST_JWT')) {
       return reply.status(401).send({ error: 'Unauthorized' });
     }
 
-    if (err instanceof Prisma.PrismaClientKnownRequestError) {
-      if (err.code === 'P2002') {
-        return reply.status(409).send({ error: 'UniqueConstraint' });
-      }
+    const statusCode = typeof anyErr?.statusCode === 'number' ? anyErr.statusCode : 500;
+    if (process.env.NODE_ENV === 'test') {
+      console.error(err);
+    } else {
+      req.log.error({ err }, 'Unhandled error');
     }
 
-    app.log.error(err);
-    return reply.status(500).send({ error: 'Internal Server Error' });
+    const body = statusCode >= 500 ? { error: 'Internal Server Error' } : { error: anyErr?.message ?? 'Error' };
+    return reply.status(statusCode).send(body);
   });
 }

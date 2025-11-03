@@ -1,13 +1,17 @@
+import fs from 'node:fs';
 import dotenv from 'dotenv';
 import { z } from 'zod';
 
 const isVitest = 'VITEST_WORKER_ID' in process.env;
 const nodeEnv = process.env.NODE_ENV ?? (isVitest ? 'test' : 'development');
 
+dotenv.config();
+
 if (nodeEnv === 'test') {
-  dotenv.config({ path: '.env.test' });
-} else {
-  dotenv.config();
+  const testEnvPath = '.env.test';
+  if (fs.existsSync(testEnvPath)) {
+    dotenv.config({ path: testEnvPath, override: true });
+  }
 }
 
 const envSchema = z.object({
