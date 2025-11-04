@@ -62,17 +62,18 @@ export async function createLog(
 ) {
   const item = await findOwnedItem(id);
   if (!item || item.vehicle.userId !== userId) throw new AppError('Not found', 404);
-  const created = await createLogRecord(id, input);
+  const { expense, ...rest } = input;
+  const created = await createLogRecord(id, rest);
 
-  if (input.expense && input.expense.amountEur && input.expense.category) {
-    const expenseDate = input.expense.expenseDate ?? input.logDate;
+  if (expense && expense.amountEur && expense.category) {
+    const expenseDate = expense.expenseDate ?? input.logDate;
     await createExpense(userId, {
       trackedItemId: id,
       expenseDate,
-      amountEur: input.expense.amountEur,
-      category: input.expense.category,
-      description: input.expense.description,
-      vendor: input.expense.vendor,
+      amountEur: expense.amountEur,
+      category: expense.category,
+      description: expense.description,
+      vendor: expense.vendor,
     });
   }
 
@@ -85,4 +86,3 @@ export async function listLogs(userId: number, id: number) {
   const logs = await listLogsByItem(id);
   return { data: logs };
 }
-
