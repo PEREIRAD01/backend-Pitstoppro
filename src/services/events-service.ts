@@ -49,20 +49,21 @@ export async function updateEvent(
   const event = await findOwnedEvent(id, userId);
   if (!event || event.vehicle.userId !== userId) throw new AppError('Not found', 404);
 
-  const payload: UpdateEventInput = { ...data };
+  const { expense, ...rest } = data;
+  const payload: UpdateEventInput = { ...rest };
   if (payload.isDone === false) payload.doneDate = null;
 
   const updated = await updateEventRecord(id, payload);
 
-  if (data.expense && data.expense.amountEur && data.expense.category) {
-    const expenseDate = data.expense.expenseDate ?? (payload.doneDate ?? new Date());
+  if (expense && expense.amountEur && expense.category) {
+    const expenseDate = expense.expenseDate ?? (payload.doneDate ?? new Date());
     await createExpense(userId, {
       vehicleEventId: id,
       expenseDate,
-      amountEur: data.expense.amountEur,
-      category: data.expense.category,
-      description: data.expense.description,
-      vendor: data.expense.vendor,
+      amountEur: expense.amountEur,
+      category: expense.category,
+      description: expense.description,
+      vendor: expense.vendor,
     });
   }
 

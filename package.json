@@ -11,7 +11,7 @@
 		"db:reset": "docker compose down -v && docker compose up -d",
 		"db:migrate": "prisma migrate deploy",
 		"db:studio": "prisma studio",
-		"db:test:push": "powershell -NoProfile -Command \"$env:DATABASE_URL='mysql://pituser:pitpass@127.0.0.1:3307/pitstop_test'; npx prisma db push\"",
+		"db:test:push": "node scripts/db-test-push.js",
 		"test": "vitest run",
 		"test:watch": "vitest"
 	},
