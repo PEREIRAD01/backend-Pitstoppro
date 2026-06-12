@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import prisma from '../db/prisma';
 
 export type ExpenseCategory = 'part' | 'event' | 'insurance' | 'inspection' | 'iuc' | 'custom';
@@ -14,8 +15,12 @@ export type CreateExpenseInput = {
 
 export async function listExpensesForUser(
   userId: number,
-  filters: { vehicleId?: number; from?: Date; to?: Date; category?: ExpenseCategory },
+  filters: { vehicleId?: number; from?: Date; to?: Date; category?: ExpenseCategory; page?: number; limit?: number },
 ) {
+  const page = filters.page ?? 1;
+  const limit = filters.limit ?? 20;
+  const skip = (page - 1) * limit;
+
   const whereDate = filters.from || filters.to
     ? { expenseDate: { ...(filters.from ? { gte: filters.from } : {}), ...(filters.to ? { lte: filters.to } : {}) } }
     : {};
@@ -35,11 +40,14 @@ export async function listExpensesForUser(
         ],
       };
 
-  const data = await prisma.expense.findMany({
-    where: { ...whereVehicle, ...whereDate, ...whereCategory },
-    orderBy: { expenseDate: 'desc' },
-  });
-  return { data };
+  const where = { ...whereVehicle, ...whereDate, ...whereCategory };
+
+  const [data, total] = await prisma.$transaction([
+    prisma.expense.findMany({ where, orderBy: { expenseDate: 'desc' }, skip, take: limit }),
+    prisma.expense.count({ where }),
+  ]);
+
+  return { data, total, page, limit, pages: Math.ceil(total / limit) };
 }
 
 export async function findTrackedItemOwned(id: number, userId: number) {
@@ -56,7 +64,7 @@ export async function createExpenseRecord(input: CreateExpenseInput) {
       trackedItemId: input.trackedItemId,
       vehicleEventId: input.vehicleEventId,
       expenseDate: input.expenseDate,
-      amountEur: input.amountEur as any,
+      amountEur: new Prisma.Decimal(input.amountEur),
       category: input.category as any,
       description: input.description,
       vendor: input.vendor,
@@ -66,14 +74,14 @@ export async function createExpenseRecord(input: CreateExpenseInput) {
 
 export async function findExpenseDuplicateForTI(trackedItemId: number, expenseDate: Date, amountEur: string) {
   return prisma.expense.findFirst({
-    where: { trackedItemId, expenseDate, amountEur: amountEur as any },
+    where: { trackedItemId, expenseDate, amountEur: new Prisma.Decimal(amountEur) },
     select: { id: true },
   });
 }
 
 export async function findExpenseDuplicateForVE(vehicleEventId: number, expenseDate: Date, amountEur: string) {
   return prisma.expense.findFirst({
-    where: { vehicleEventId, expenseDate, amountEur: amountEur as any },
+    where: { vehicleEventId, expenseDate, amountEur: new Prisma.Decimal(amountEur) },
     select: { id: true },
   });
 }

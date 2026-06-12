@@ -1,5 +1,5 @@
 import { AppError } from '../errors';
-import { createEvent, findOwnedEvent, findVehicleOwned, listEventsByVehicle, updateEventRecord, CreateEventInput, UpdateEventInput } from '../repos/event-repo';
+import { createEvent, findOwnedEvent, findVehicleOwned, listEventsByVehicle, updateEventRecord, findPendingEventAfterDate, CreateEventInput, UpdateEventInput } from '../repos/event-repo';
 import { createExpense } from './expenses-service';
 import type { ExpenseCategory } from '../repos/expense-repo';
 
@@ -53,6 +53,24 @@ export async function updateEvent(
   if (payload.isDone === false) payload.doneDate = null;
 
   const updated = await updateEventRecord(id, payload);
+
+  // Auto-create next-year event when marking annual events as done
+  const ANNUAL_TYPES = ['insurance', 'inspection', 'iuc'];
+  if (data.isDone === true && !event.isDone && ANNUAL_TYPES.includes(event.eventType)) {
+    const existingNext = await findPendingEventAfterDate(
+      event.vehicleId,
+      event.eventType,
+      event.dueDate,
+    );
+    if (!existingNext) {
+      const nextDueDate = new Date(event.dueDate);
+      nextDueDate.setFullYear(nextDueDate.getFullYear() + 1);
+      await createEvent(event.vehicleId, {
+        eventType: event.eventType as CreateEventInput['eventType'],
+        dueDate: nextDueDate,
+      });
+    }
+  }
 
   if (data.expense && data.expense.amountEur && data.expense.category) {
     const expenseDate = data.expense.expenseDate ?? (payload.doneDate ?? new Date());

@@ -10,6 +10,7 @@ export type UpdateEventInput = Partial<{
   isDone: boolean;
   doneDate: Date | null;
   note: string | null;
+  dueDate: Date;
 }>;
 
 export async function findVehicleOwned(vehicleId: number, userId: number) {
@@ -33,5 +34,20 @@ export async function createEvent(vehicleId: number, data: CreateEventInput) {
 
 export async function updateEventRecord(eventId: number, data: UpdateEventInput) {
   return prisma.vehicleEvent.update({ where: { id: eventId }, data });
+}
+
+export async function findPendingEventAfterDate(
+  vehicleId: number,
+  eventType: string,
+  afterDate: Date,
+) {
+  return prisma.vehicleEvent.findFirst({
+    where: {
+      vehicleId,
+      eventType: eventType as any,
+      isDone: false,
+      dueDate: { gt: afterDate },
+    },
+  });
 }
 

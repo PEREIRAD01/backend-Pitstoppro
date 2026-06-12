@@ -7,6 +7,7 @@ export type CreateVehicleInput = {
   year?: number | null;
   vehicleName?: string | null;
   currentOdometerKm?: number | null;
+  isElectric?: boolean;
 };
 
 export async function existsPlateForUser(userId: number, plate: string, excludeId?: number): Promise<boolean> {
@@ -45,6 +46,7 @@ export async function listVehiclesForUser(
         year: true,
         vehicleName: true,
         currentOdometerKm: true,
+        isElectric: true,
       },
       orderBy: { [sortField]: sortDir } as any,
       skip: (page - 1) * limit,

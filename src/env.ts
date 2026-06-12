@@ -16,6 +16,7 @@ const envSchema = z.object({
   JWT_SECRET: z.string().min(1, 'JWT_SECRET is required'),
   DATABASE_URL: z.string().min(1, 'DATABASE_URL is required'),
   SHADOW_DATABASE_URL: z.string().optional(),
+  CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:3000,http://localhost:3333'),
 });
 
 const parsed = envSchema.safeParse({ ...process.env, NODE_ENV: nodeEnv });

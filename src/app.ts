@@ -2,6 +2,7 @@ import Fastify from 'fastify';
 import jwt from '@fastify/jwt';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import swagger from '@fastify/swagger';
 import swaggerUI from '@fastify/swagger-ui';
 import multipart from '@fastify/multipart';
@@ -43,10 +44,16 @@ export async function buildApp() {
 	await app.register(multipart, { attachFieldsToBody: true, limits: { fileSize: 10_000_000 } });
 
 	if (!isTest) {
+		await app.register(rateLimit, {
+			max: 200,
+			timeWindow: '1 minute',
+			errorResponseBuilder: () => ({ error: 'TooManyRequests', message: 'Rate limit exceeded, retry later' }),
+		});
 		await app.register(helmet);
 		await app.register(cors, {
-			origin: ['http://localhost:5173', 'http://localhost:3333'],
+			origin: env.CORS_ORIGINS.split(',').map((o) => o.trim()),
 			credentials: true,
+			methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
 		});
 	}
 

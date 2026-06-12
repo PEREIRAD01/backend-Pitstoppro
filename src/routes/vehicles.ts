@@ -2,15 +2,17 @@ import { FastifyInstance } from 'fastify';
 import prisma from '../db/prisma';
 import { z } from 'zod';
 import { AppError } from '../errors';
+import { todayMidnight, calcOverdue } from '../lib/date-utils';
 import { createVehicle as svcCreateVehicle, updateVehicle as svcUpdateVehicle, listVehicles as svcListVehicles, deleteVehicle as svcDeleteVehicle } from '../services/vehicles-service';
 
 const createSchema = z.object({
-	plate: z.string().min(1),
-	brand: z.string().min(1),
-	model: z.string().min(1),
+	plate: z.string().min(1).max(20).trim(),
+	brand: z.string().min(1).max(100).trim(),
+	model: z.string().min(1).max(100).trim(),
 	year: z.number().int().min(1900).max(2100).optional(),
-	vehicleName: z.string().min(1).optional(),
+	vehicleName: z.string().min(1).max(100).trim().optional(),
 	currentOdometerKm: z.number().int().min(0).optional(),
+	isElectric: z.boolean().optional(),
 });
 
 const updateSchema = createSchema.partial();
@@ -79,8 +81,7 @@ export default async function vehicles(app: FastifyInstance) {
                 const hasPhoto = Boolean(v.photoBytes);
 				const { photoBytes, ...vehicle } = v as any;
 
-				const now = new Date();
-				const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+				const today = todayMidnight();
 
 				// Eventos: dueDate é obrigatório por schema → basta ordenar por dueDate asc
 				const events = await prisma.vehicleEvent.findMany({
@@ -88,11 +89,7 @@ export default async function vehicles(app: FastifyInstance) {
 					orderBy: { dueDate: 'asc' },
 					take: 5,
 				});
-				const upcomingEvents = events.map((e) => {
-					const isOverdue = e.dueDate ? new Date(e.dueDate) < startOfToday : false;
-					const daysOverdue = isOverdue && e.dueDate ? Math.floor((startOfToday.getTime() - new Date(e.dueDate).getTime()) / 86400000) : 0;
-					return { ...e, isOverdue, daysOverdue };
-				});
+				const upcomingEvents = events.map((e) => ({ ...e, ...calcOverdue(e.dueDate, today) }));
 
 				// Tracked items: com dueDate primeiro, depois sem dueDate (até 5 no total)
 				const tiWithDue = await prisma.trackedItem.findMany({
@@ -102,13 +99,7 @@ export default async function vehicles(app: FastifyInstance) {
 				});
 				const remainingT = Math.max(0, 5 - tiWithDue.length);
 				const tiNoDue = remainingT > 0 ? await prisma.trackedItem.findMany({ where: { vehicleId: id, isDone: false, dueDate: null }, orderBy: { id: 'asc' }, take: remainingT }) : [];
-				const rawTracked = [...tiWithDue, ...tiNoDue] as any[];
-				const pendingTrackedItems = rawTracked.map((t) => {
-					const due = t.dueDate ? new Date(t.dueDate) : null;
-					const isOverdue = due ? due < startOfToday : false;
-					const daysOverdue = isOverdue && due ? Math.floor((startOfToday.getTime() - due.getTime()) / 86400000) : 0;
-					return { ...t, isOverdue, daysOverdue };
-				});
+				const pendingTrackedItems = [...tiWithDue, ...tiNoDue].map((t) => ({ ...t, ...calcOverdue(t.dueDate, today) }));
 
 				const recentExpenses = await prisma.expense.findMany({
 						where: {
@@ -163,6 +154,7 @@ export default async function vehicles(app: FastifyInstance) {
 										year: { type: 'integer', nullable: true },
 										vehicleName: { type: 'string', nullable: true },
 										currentOdometerKm: { type: 'integer', nullable: true },
+										isElectric: { type: 'boolean', nullable: true },
 									},
 									additionalProperties: true,
 								},
@@ -213,6 +205,7 @@ export default async function vehicles(app: FastifyInstance) {
 						year: { type: 'integer', minimum: 1900, maximum: 2100 },
 						vehicleName: { type: 'string' },
 						currentOdometerKm: { type: 'integer', minimum: 0 },
+						isElectric: { type: 'boolean' },
 					},
 				},
 				response: {
@@ -258,6 +251,7 @@ export default async function vehicles(app: FastifyInstance) {
                         year: { type: 'integer', minimum: 1900, maximum: 2100 },
                         vehicleName: { type: 'string' },
                         currentOdometerKm: { type: 'integer', minimum: 0 },
+                        isElectric: { type: 'boolean' },
                     },
                 },
                 response: {
@@ -335,7 +329,10 @@ export default async function vehicles(app: FastifyInstance) {
 				upload = await (req as any).file();
 			}
 			if (!upload) throw new AppError('File is required', 400);
-			if (!upload.mimetype || !upload.mimetype.startsWith('image/')) throw new AppError('Only image files are accepted', 400);
+			const ALLOWED_MIMES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
+			if (!upload.mimetype || !ALLOWED_MIMES.includes(upload.mimetype)) {
+				throw new AppError('Only JPEG, PNG, WebP or GIF images are accepted', 400);
+			}
 
 			const buf = await upload.toBuffer();
 			await prisma.vehicle.update({ where: { id }, data: { photoBytes: buf, photoMimeType: upload.mimetype } });

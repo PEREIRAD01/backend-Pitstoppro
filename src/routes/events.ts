@@ -64,7 +64,7 @@ export default async function events(app: FastifyInstance) {
     async (req: any, reply) => {
       const userId = Number(req.user.sub);
       const { id: vehicleId } = idParam.parse(req.params);
-      const body = z.object({ eventType: eventTypeEnum, dueDate: z.coerce.date(), note: z.string().optional() }).parse(req.body);
+      const body = z.object({ eventType: eventTypeEnum, dueDate: z.coerce.date(), note: z.string().max(500).trim().optional() }).parse(req.body);
 
       const result = await svcCreateForVehicle(userId, vehicleId, body);
       return reply.code(201).send(result);
@@ -86,6 +86,7 @@ export default async function events(app: FastifyInstance) {
             isDone: { type: 'boolean' },
             doneDate: { type: 'string', format: 'date' },
             note: { type: 'string' },
+            dueDate: { type: 'string', format: 'date' },
             expense: {
               type: 'object',
               properties: {
@@ -108,19 +109,44 @@ export default async function events(app: FastifyInstance) {
         .object({
           isDone: z.boolean().optional(),
           doneDate: z.coerce.date().optional(),
-          note: z.string().optional(),
+          note: z.string().max(500).trim().optional(),
+          dueDate: z.coerce.date().optional(),
           expense: z
             .object({
               expenseDate: z.coerce.date().optional(),
-              amountEur: z.string(),
-              category: z.enum(['part','event','insurance','inspection','iuc']),
-              description: z.string().optional(),
-              vendor: z.string().optional(),
+              amountEur: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'Invalid amount format (e.g. 19.99)'),
+              category: z.enum(['part','event','insurance','inspection','iuc','custom']),
+              description: z.string().max(500).trim().optional(),
+              vendor: z.string().max(200).trim().optional(),
             })
             .optional(),
         })
         .parse(req.body);
       return svcUpdateEvent(userId, id, data as any);
+    },
+  );
+
+  app.delete(
+    '/events/:id',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        tags: ['events'],
+        summary: 'Delete a vehicle event',
+        security: [{ bearerAuth: [] }],
+        params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+        response: { 204: { type: 'null' } },
+      },
+    },
+    async (req: any, reply) => {
+      const userId = Number(req.user.sub);
+      const { id } = idParam.parse(req.params);
+      const event = await prisma.vehicleEvent.findFirst({
+        where: { id, vehicle: { userId } },
+      });
+      if (!event) throw new AppError('Not found', 404);
+      await prisma.vehicleEvent.delete({ where: { id } });
+      return reply.status(204).send();
     },
   );
 }

@@ -80,9 +80,9 @@ export default async function trackedItems(app: FastifyInstance) {
 
       const body = z
         .object({
-          name: z.string().min(1),
+          name: z.string().min(1).max(100).trim(),
           itemType: itemTypeEnum,
-          notes: z.string().optional(),
+          notes: z.string().max(1000).trim().optional(),
           startDate: z.coerce.date().optional(),
           startOdometer: z.number().int().optional(),
           validMonths: z.number().int().optional(),
@@ -128,8 +128,8 @@ export default async function trackedItems(app: FastifyInstance) {
       const { id } = idParam.parse(req.params);
       const data = z
         .object({
-          name: z.string().optional(),
-          notes: z.string().optional(),
+          name: z.string().min(1).max(100).trim().optional(),
+          notes: z.string().max(1000).trim().optional(),
           validMonths: z.number().int().optional(),
           validKm: z.number().int().optional(),
           dueDate: z.coerce.date().optional(),
@@ -182,14 +182,14 @@ export default async function trackedItems(app: FastifyInstance) {
         .object({
           logDate: z.coerce.date(),
           odometerKm: z.number().int().optional(),
-          note: z.string().optional(),
+          note: z.string().max(500).trim().optional(),
           expense: z
             .object({
               expenseDate: z.coerce.date().optional(),
-              amountEur: z.string(),
+              amountEur: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'Invalid amount format (e.g. 19.99)'),
               category: z.enum(['part','event','insurance','inspection','iuc','custom']),
-              description: z.string().optional(),
-              vendor: z.string().optional(),
+              description: z.string().max(500).trim().optional(),
+              vendor: z.string().max(200).trim().optional(),
             })
             .optional(),
         })
@@ -227,6 +227,30 @@ export default async function trackedItems(app: FastifyInstance) {
       const userId = Number(req.user.sub);
       const { id } = idParam.parse(req.params);
       return svcListLogs(userId, id);
+    },
+  );
+
+  app.delete(
+    '/tracked-items/:id',
+    {
+      preHandler: app.authenticate,
+      schema: {
+        tags: ['tracked-items'],
+        summary: 'Delete a tracked item',
+        security: [{ bearerAuth: [] }],
+        params: { type: 'object', properties: { id: { type: 'integer', minimum: 1 } }, required: ['id'] },
+        response: { 204: { type: 'null' } },
+      },
+    },
+    async (req: any, reply) => {
+      const userId = Number(req.user.sub);
+      const { id } = idParam.parse(req.params);
+      const item = await prisma.trackedItem.findFirst({
+        where: { id, vehicle: { userId } },
+      });
+      if (!item) throw new AppError('Not found', 404);
+      await prisma.trackedItem.delete({ where: { id } });
+      return reply.status(204).send();
     },
   );
 }

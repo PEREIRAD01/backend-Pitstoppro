@@ -2,7 +2,7 @@ import { AppError } from '../errors';
 import { hasExactlyOne } from '../lib/validators';
 import { listExpensesForUser, findTrackedItemOwned, findVehicleEventOwned, createExpenseRecord, CreateExpenseInput, ExpenseCategory, findExpenseDuplicateForTI, findExpenseDuplicateForVE } from '../repos/expense-repo';
 
-export async function listExpenses(userId: number, filters: { vehicleId?: number; from?: Date; to?: Date; category?: ExpenseCategory }) {
+export async function listExpenses(userId: number, filters: { vehicleId?: number; from?: Date; to?: Date; category?: ExpenseCategory; page?: number; limit?: number }) {
   return listExpensesForUser(userId, filters);
 }
 

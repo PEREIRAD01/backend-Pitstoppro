@@ -19,19 +19,40 @@ export default async function expenses(app: FastifyInstance) {
         security: [{ bearerAuth: [] }],
         querystring: {
           type: 'object',
-          properties: { vehicleId: { type: 'integer', minimum: 1 }, from: { type: 'string', format: 'date' }, to: { type: 'string', format: 'date' }, category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','custom'] } },
+          properties: {
+            vehicleId: { type: 'integer', minimum: 1 },
+            from: { type: 'string', format: 'date' },
+            to: { type: 'string', format: 'date' },
+            category: { type: 'string', enum: ['part','event','insurance','inspection','iuc','custom'] },
+            page: { type: 'integer', minimum: 1, default: 1 },
+            limit: { type: 'integer', minimum: 1, maximum: 100, default: 20 },
+          },
         },
-        response: { 200: { type: 'object', required: ['data'], properties: { data: { type: 'array', items: { type: 'object', additionalProperties: true } } } } },
+        response: {
+          200: {
+            type: 'object',
+            required: ['data', 'total', 'page', 'limit', 'pages'],
+            properties: {
+              data: { type: 'array', items: { type: 'object', additionalProperties: true } },
+              total: { type: 'integer' },
+              page: { type: 'integer' },
+              limit: { type: 'integer' },
+              pages: { type: 'integer' },
+            },
+          },
+        },
       },
     },
     async (req: any) => {
       const userId = Number(req.user.sub);
-      const { vehicleId, from, to, category } = req.query as any;
+      const { vehicleId, from, to, category, page, limit } = req.query as any;
       return svcListExpenses(userId, {
         vehicleId: vehicleId ? Number(vehicleId) : undefined,
         from: from ? new Date(from) : undefined,
         to: to ? new Date(to) : undefined,
         category,
+        page: page ? Number(page) : undefined,
+        limit: limit ? Number(limit) : undefined,
       });
     },
   );
@@ -106,10 +127,10 @@ export default async function expenses(app: FastifyInstance) {
           trackedItemId: z.number().int().positive().optional(),
           vehicleEventId: z.number().int().positive().optional(),
           expenseDate: z.coerce.date(),
-          amountEur: z.string(),
+          amountEur: z.string().regex(/^\d{1,10}(\.\d{1,2})?$/, 'Invalid amount format (e.g. 19.99)'),
           category: categoryEnum,
-          description: z.string().optional(),
-          vendor: z.string().optional(),
+          description: z.string().max(500).trim().optional(),
+          vendor: z.string().max(200).trim().optional(),
         })
         .parse(req.body);
 

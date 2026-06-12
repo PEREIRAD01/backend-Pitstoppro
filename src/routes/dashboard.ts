@@ -1,6 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import prisma from '../db/prisma';
 import { z } from 'zod';
+import { todayMidnight, calcOverdue } from '../lib/date-utils';
 
 export default async function dashboard(app: FastifyInstance) {
   app.get(
@@ -32,8 +33,7 @@ export default async function dashboard(app: FastifyInstance) {
     async (req: any) => {
       const userId = Number(req.user.sub);
 
-      const now = new Date();
-      const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const today = todayMidnight();
 
       const { limit } = z
         .object({ limit: z.coerce.number().int().min(1).max(200).default(50) })
@@ -71,18 +71,8 @@ export default async function dashboard(app: FastifyInstance) {
       const rawEvents = [...eventsWithDue];
       const rawTracked = [...tiWithDue, ...tiNoDue];
 
-      const upcomingEvents = rawEvents.map((e: any) => {
-        const isOverdue = e.dueDate && new Date(e.dueDate) < startOfToday;
-        const daysOverdue = isOverdue ? Math.floor((startOfToday.getTime() - new Date(e.dueDate).getTime()) / 86400000) : 0;
-        return { ...e, isOverdue, daysOverdue };
-      });
-
-      const pendingTrackedItems = rawTracked.map((t: any) => {
-        const due = t.dueDate ? new Date(t.dueDate) : null;
-        const isOverdue = due ? due < startOfToday : false;
-        const daysOverdue = isOverdue && due ? Math.floor((startOfToday.getTime() - due.getTime()) / 86400000) : 0;
-        return { ...t, isOverdue, daysOverdue };
-      });
+      const upcomingEvents = rawEvents.map((e: any) => ({ ...e, ...calcOverdue(e.dueDate, today) }));
+      const pendingTrackedItems = rawTracked.map((t: any) => ({ ...t, ...calcOverdue(t.dueDate, today) }));
 
       return { upcomingEvents, pendingTrackedItems };
     },
