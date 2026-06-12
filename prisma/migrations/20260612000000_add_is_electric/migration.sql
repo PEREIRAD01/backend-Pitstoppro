@@ -1,0 +1,1 @@
+ALTER TABLE `Vehicle` ADD COLUMN `isElectric` BOOLEAN NOT NULL DEFAULT false;
