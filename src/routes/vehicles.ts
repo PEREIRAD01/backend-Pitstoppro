@@ -1,4 +1,5 @@
 import { FastifyInstance } from 'fastify';
+import sharp from 'sharp';
 import prisma from '../db/prisma';
 import { z } from 'zod';
 import { AppError } from '../errors';
@@ -334,8 +335,21 @@ export default async function vehicles(app: FastifyInstance) {
 				throw new AppError('Only JPEG, PNG, WebP or GIF images are accepted', 400);
 			}
 
-			const buf = await upload.toBuffer();
-			await prisma.vehicle.update({ where: { id }, data: { photoBytes: buf, photoMimeType: upload.mimetype } });
+			const original = await upload.toBuffer();
+
+			// Resize/recompress to a card-friendly size (skip GIF to keep animation intact).
+			let buf = original;
+			let mimeType = upload.mimetype;
+			if (upload.mimetype !== 'image/gif') {
+				buf = await sharp(original)
+					.rotate()
+					.resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true })
+					.jpeg({ quality: 80 })
+					.toBuffer();
+				mimeType = 'image/jpeg';
+			}
+
+			await prisma.vehicle.update({ where: { id }, data: { photoBytes: buf, photoMimeType: mimeType } });
 			return reply.status(204).send();
 		},
 	);
