@@ -360,6 +360,7 @@ export default async function vehicles(app: FastifyInstance) {
 			if (!vehicle || !vehicle.photoBytes) throw new AppError('Not found', 404);
 
 			reply.header('Content-Type', vehicle.photoMimeType || 'application/octet-stream');
+			reply.header('Cache-Control', 'private, max-age=86400');
 			return reply.send(Buffer.from(vehicle.photoBytes));
 		},
 	);
