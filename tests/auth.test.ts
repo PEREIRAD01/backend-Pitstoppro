@@ -21,7 +21,7 @@ test('register -> token, then me works', async () => {
   const register = await app.inject({
     method: 'POST',
     url: '/v1/auth/register',
-    payload: { email, password: '12345678', displayName: 'Daniel' },
+    payload: { email, password: 'Test1234', displayName: 'Daniel' },
   });
   expect(register.statusCode).toBe(201);
   const token = register.json().token as string;
@@ -41,13 +41,13 @@ test('login with correct credentials returns token', async () => {
   await app.inject({
     method: 'POST',
     url: '/v1/auth/register',
-    payload: { email, password: '12345678', displayName: 'Daniel' },
+    payload: { email, password: 'Test1234', displayName: 'Daniel' },
   });
 
   const login = await app.inject({
     method: 'POST',
     url: '/v1/auth/login',
-    payload: { email, password: '12345678' },
+    payload: { email, password: 'Test1234' },
   });
   expect(login.statusCode).toBe(200);
   expect(typeof login.json().token).toBe('string');

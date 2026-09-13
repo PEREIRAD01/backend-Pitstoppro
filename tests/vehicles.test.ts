@@ -10,7 +10,7 @@ beforeAll(async () => {
   const reg = await app.inject({
     method: 'POST',
     url: '/v1/auth/register',
-    payload: { email, password: '12345678', displayName: 'Veh Tester' },
+    payload: { email, password: 'Test1234', displayName: 'Veh Tester' },
   });
   token = reg.json().token as string;
 });
